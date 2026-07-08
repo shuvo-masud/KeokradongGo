@@ -28,7 +28,7 @@ function VerifyView() {
   const [inspectProduct, setInspectProduct] = useState<(Product & { district: District; seller: Profile }) | null>(null)
 
   const load = useCallback(async () => {
-    if (!profile?.district_id) return
+    if (!profile?.district) return
     const [prodRes, verRes, setRes] = await Promise.all([
       supabase.from('products').select('*, district:districts(*), seller:profiles!seller_id(*)').eq('district_id', profile.district_id).order('created_at', { ascending: false }),
       supabase.from('verifications').select('*').eq('agent_id', profile.id).order('created_at', { ascending: false }),
@@ -161,7 +161,7 @@ function InspectModal({ product, onClose, onSubmitted }: { product: Product & { 
       user_id: product.seller_id,
       type: 'verification',
       title: status === 'verified' ? 'Product Verified!' : 'Product Rejected',
-      body: `"${product.title}" has been ${status} by agent ${profile.full_name}`,
+      body: `"${product.title}" has been ${status} by agent ${profile.name}`,
     })
     setSaving(false)
     onSubmitted()

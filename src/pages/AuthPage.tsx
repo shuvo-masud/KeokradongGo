@@ -1,8 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 
-// Clean, exhaustive list of all 64 districts in Bangladesh grouped by division
 const BANGLADESH_DISTRICTS = [
   { division: 'Barishal', districts: ['Barguna', 'Barishal', 'Bhola', 'Jhalokati', 'Patuakhali', 'Pirojpur'] },
   { division: 'Chattogram', districts: ['Bandarban', 'Brahmanbaria', 'Chandpur', 'Chattogram', 'Cox\'s Bazar', 'Feni', 'Khagrachhari', 'Lakshmipur', 'Noakhali', 'Rangamati'] },
@@ -16,9 +15,9 @@ const BANGLADESH_DISTRICTS = [
 
 export default function AuthPage() {
   const navigate = useNavigate()
-  const { signUp, signIn } = useAuth()
+  const { signUp, signIn, profile, loading } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [loading, setLoading] = useState(false)
+  const [formLoading, setFormLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [email, setEmail] = useState('')
@@ -30,165 +29,113 @@ export default function AuthPage() {
   const [shopName, setShopName] = useState('')
   const [nidNumber, setNidNumber] = useState('')
 
+  useEffect(() => {
+    if (!loading && profile) navigate('/dashboard')
+  }, [profile, loading, navigate])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setLoading(true)
+    setFormLoading(true)
 
-    if (mode === 'login') {
-      const { error } = await signIn(email, password)
-      if (error) setError(error)
-      else navigate('/dashboard')
-    } else {
-      if (!districtName) {
-        setError('Please select your home or operating district')
-        setLoading(false)
-        return
+    try {
+      if (mode === 'login') {
+        const { error } = await signIn(email, password)
+        if (error) throw new Error(error)
+      } else {
+        const { error } = await signUp({
+          email, password, name, phone, role,
+          district: districtName,
+          nidNumber: (role !== 'CONSUMER') ? nidNumber : null,
+          shopName: (role === 'SELLER') ? shopName : null,
+        })
+        if (error) throw new Error(error)
       }
-      if (role === 'SELLER' && !shopName) {
-        setError('Shop name is required for sellers')
-        setLoading(false)
-        return
-      }
-      if ((role === 'SELLER' || role === 'AGENT') && !nidNumber) {
-        setError('National ID (NID) is required')
-        setLoading(false)
-        return
-      }
-      
-      const { error } = await signUp({
-        email,
-        password,
-        name,
-        phone: phone || null,
-        role,
-        district: districtName,
-        nidNumber: nidNumber || null,
-        shopName: shopName || null,
-      })
-      
-      if (error) setError(error)
-      else navigate('/dashboard')
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed')
+      setFormLoading(false)
     }
-    setLoading(false)
   }
 
+  const inputClass = "w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all"
+  const labelClass = "block text-sm font-medium text-gray-700 mb-1"
+
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel - Branding */}
-      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 relative overflow-hidden">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent-400/20 rounded-full blur-3xl" />
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl font-bold">K</div>
-            <div>
-              <div className="font-display font-bold text-2xl">Keokradong</div>
-              <div className="text-sm text-primary-200">কেওক্রাডং</div>
-            </div>
-          </div>
-          <h1 className="font-display font-extrabold text-4xl leading-tight mb-4">
-            Authentic local goods,<br />verified by trusted agents.
-          </h1>
-          <p className="text-primary-100 text-lg leading-relaxed mb-8 max-w-md">
-            Join Bangladesh's first trust-centric marketplace where every product is physically inspected by local district agents before reaching you.
-          </p>
+    <div className="min-h-screen flex bg-white">
+      <div className="hidden lg:flex w-1/2 bg-primary-900 p-12 flex-col justify-between text-white">
+        <div className="text-2xl font-bold tracking-tight">Keokradong</div>
+        <div>
+          <h1 className="text-4xl font-extrabold mb-6">Authentic local goods, verified by agents.</h1>
+          <p className="text-primary-200 text-lg">Every product is physically inspected by local district agents before reaching you.</p>
         </div>
+        <div />
       </div>
 
-      {/* Right panel - Form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-gray-50 overflow-y-auto">
-        <div className="w-full max-w-md py-8">
-          <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
-            <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center text-white font-bold text-lg">K</div>
-            <span className="font-display font-bold text-xl">Keokradong</span>
-          </div>
-
-          <h2 className="font-display font-bold text-2xl mb-1">
-            {mode === 'login' ? 'Welcome back' : 'Create your account'}
-          </h2>
-          <p className="text-gray-500 text-sm mb-6">
-            {mode === 'login' ? 'Sign in to your Keokradong account' : 'Join the trusted local marketplace'}
-          </p>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-              {error}
-            </div>
-          )}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-sm">
+          <h2 className="text-2xl font-bold mb-6">{mode === 'login' ? 'Welcome Back' : 'Join Keokradong'}</h2>
+          
+          {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'register' && (
               <>
                 <div>
-                  <label className="label">Full Name</label>
-                  <input className="input" value={name} onChange={e => setName(e.target.value)} required placeholder="Your full name" />
+                  <label className={labelClass}>Full Name</label>
+                  <input className={inputClass} value={name} onChange={e => setName(e.target.value)} required />
                 </div>
                 <div>
-                  <label className="label">Register as</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['CONSUMER', 'SELLER', 'AGENT'] as const).map(r => (
+                  <label className={labelClass}>Role</label>
+                  <div className="flex gap-2">
+                    {(['consumer', 'seller', 'agent'] as const).map(r => (
                       <button key={r} type="button" onClick={() => setRole(r)}
-                        className={`px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${role === r ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                        {r === 'CONSUMER' ? '🛍️ Consumer' : r === 'SELLER' ? '🌾 Seller' : '🔍 Agent'}
+                        className={`flex-1 py-2 rounded-lg text-xs font-semibold border ${role === r ? 'bg-primary-600 text-white border-primary-600' : 'bg-gray-50 border-gray-200'}`}>
+                        {r.charAt(0) + r.slice(1).toLowerCase()}
                       </button>
                     ))}
                   </div>
                 </div>
                 {role === 'SELLER' && (
                   <div>
-                    <label className="label">Shop Name</label>
-                    <input className="input" value={shopName} onChange={e => setShopName(e.target.value)} placeholder="e.g. Rajshahi Fruit Palace" />
+                    <label className={labelClass}>Shop Name</label>
+                    <input className={inputClass} value={shopName} onChange={e => setShopName(e.target.value)} required />
                   </div>
                 )}
-                {(role === 'SELLER' || role === 'AGENT') && (
+                {role !== 'CONSUMER' && (
                   <div>
-                    <label className="label">National ID (NID)</label>
-                    <input className="input" value={nidNumber} onChange={e => setNidNumber(e.target.value)} placeholder="Your NID number" />
+                    <label className={labelClass}>NID Number</label>
+                    <input className={inputClass} value={nidNumber} onChange={e => setNidNumber(e.target.value)} required />
                   </div>
                 )}
                 <div>
-                  <label className="label">District</label>
-                  <select 
-                    className="input bg-white" 
-                    value={districtName} 
-                    onChange={e => setDistrictName(e.target.value)} 
-                    required
-                  >
-                    <option value="">Select your district</option>
-                    {BANGLADESH_DISTRICTS.map((group) => (
-                      <optgroup key={group.division} label={`${group.division} Division`}>
-                        {group.districts.map((dist) => (
-                          <option key={dist} value={dist}>
-                            {dist}
-                          </option>
-                        ))}
-                      </optgroup>
+                  <label className={labelClass}>District</label>
+                  <select className={inputClass} value={districtName} onChange={e => setDistrictName(e.target.value)} required>
+                    <option value="">Select District</option>
+                    {BANGLADESH_DISTRICTS.map(g => (
+                      <optgroup key={g.division} label={g.division}>{g.districts.map(d => <option key={d} value={d}>{d}</option>)}</optgroup>
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="label">Phone Number</label>
-                  <input className="input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01XXXXXXXXX" />
-                </div>
               </>
             )}
+            
             <div>
-              <label className="label">Email Address</label>
-              <input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com" />
+              <label className={labelClass}>Email</label>
+              <input type="email" className={inputClass} value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <div>
-              <label className="label">Password</label>
-              <input type="password" className="input" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="At least 6 characters" />
+              <label className={labelClass}>Password</label>
+              <input type="password" className={inputClass} value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
-            <button type="submit" className="btn-primary w-full py-3" disabled={loading}>
-              {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+
+            <button disabled={formLoading} className="w-full bg-primary-600 text-white py-2.5 rounded-xl font-semibold hover:bg-primary-700 transition-colors">
+              {formLoading ? 'Processing...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-6">
-            {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-            <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null) }} className="text-primary-600 font-semibold hover:underline">
+          <p className="mt-6 text-sm text-center text-gray-600">
+            {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+            <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="text-primary-600 font-bold hover:underline">
               {mode === 'login' ? 'Sign up' : 'Sign in'}
             </button>
           </p>

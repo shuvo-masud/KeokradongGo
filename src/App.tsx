@@ -21,11 +21,11 @@ function DashboardRouter() {
   const { profile, profileLoading } = useAuth()
   if (profileLoading || !profile) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
   switch (profile.role) {
-    case 'consumer': return <ConsumerDashboard />
-    case 'seller': return <SellerDashboard />
-    case 'agent': return <AgentDashboard />
-    case 'admin': return <AdminDashboard />
-    case 'super_admin': return <SuperAdminDashboard />
+    case 'CONSUMER': return <ConsumerDashboard />
+    case 'SELLER': return <SellerDashboard />
+    case 'AGENT': return <AgentDashboard />
+    case 'ADMIN': return <AdminDashboard />
+    case 'SUPER_ADMIN': return <SuperAdminDashboard />
     default: return <ConsumerDashboard />
   }
 }

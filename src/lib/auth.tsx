@@ -14,7 +14,6 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>
 }
 
-// Updated interface to align perfectly with your public.users PostgreSQL table schema structure
 interface SignUpData {
   email: string
   password: string
@@ -35,37 +34,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(false)
 
+  // Safe internal profile fetcher
   async function loadProfile(uid: string) {
-    setProfileLoading(true)
-    const { data } = await supabase.from('users').select('*').eq('id', uid).maybeSingle()
-    setProfile(data as Profile | null)
-    setProfileLoading(false)
+    try {
+      setProfileLoading(true)
+      const { data, error } = await supabase.from('users').select('*').eq('id', uid).maybeSingle()
+      if (error) throw error
+      setProfile(data as Profile | null)
+    } catch (err) {
+      console.error("Error loading user profile:", err)
+      setProfile(null)
+    } finally {
+      setProfileLoading(false)
+    }
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id).finally(() => setLoading(false))
-      } else {
-        setLoading(false)
-      }
-    })
+    let isMounted = true
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        (async () => {
-          await loadProfile(session.user.id)
-        })()
+    // Clean single pipeline handling all auth state logic securely
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      if (!isMounted) return
+
+      setSession(currentSession)
+      setUser(currentSession?.user ?? null)
+
+      if (currentSession?.user) {
+        await loadProfile(currentSession.user.id)
       } else {
         setProfile(null)
       }
+
+      // Always guarantee loading turns false exactly once after profile decisions complete
+      setLoading(false)
     })
 
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   async function signIn(email: string, password: string) {
@@ -85,12 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error.message }
     if (!authData.user) return { error: 'Registration failed' }
 
-    // Adjusted properties to insert into your public.users schema explicitly
     const { error: profileError } = await supabase.from('users').insert({
       id: authData.user.id,
       name: data.name,
       phone: data.phone ?? null,
-      role: data.role,
+      role: data.role.toUpperCase(),
       district: data.district,
       nid_number: data.nidNumber ?? null,
       shop_name: data.shopName ?? null,
@@ -103,8 +109,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
-    setProfile(null)
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error("Signout caused an exception:", err)
+    } finally {
+      setProfile(null)
+      setSession(null)
+      setUser(null)
+    }
   }
 
   async function refreshProfile() {
