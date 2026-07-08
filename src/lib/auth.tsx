@@ -14,15 +14,16 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>
 }
 
+// Updated interface to align perfectly with your public.users PostgreSQL table schema structure
 interface SignUpData {
   email: string
   password: string
-  fullName: string
-  phone?: string
-  role: 'consumer' | 'seller' | 'agent' | 'admin' | 'super_admin'
-  districtId?: string
-  businessName?: string
-  nationalId?: string
+  name: string
+  phone?: string | null
+  role: 'CONSUMER' | 'SELLER' | 'AGENT' | 'ADMIN' | 'SUPER_ADMIN'
+  district: string
+  shopName?: string | null
+  nidNumber?: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadProfile(uid: string) {
     setProfileLoading(true)
-    const { data } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()
+    const { data } = await supabase.from('users').select('*').eq('id', uid).maybeSingle()
     setProfile(data as Profile | null)
     setProfileLoading(false)
   }
@@ -84,20 +85,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error.message }
     if (!authData.user) return { error: 'Registration failed' }
 
-    const { error: profileError } = await supabase.from('profiles').insert({
+    // Adjusted properties to insert into your public.users schema explicitly
+    const { error: profileError } = await supabase.from('users').insert({
       id: authData.user.id,
-      email: data.email,
-      full_name: data.fullName,
+      name: data.name,
       phone: data.phone ?? null,
       role: data.role,
-      district_id: data.districtId ?? null,
-      business_name: data.businessName ?? null,
-      national_id: data.nationalId ?? null,
-      status: data.role === 'seller' || data.role === 'agent' ? 'pending' : 'active',
+      district: data.district,
+      nid_number: data.nidNumber ?? null,
+      shop_name: data.shopName ?? null,
     })
+    
     if (profileError) return { error: profileError.message }
 
-    // Explicitly load the profile so it's ready before navigation
     await loadProfile(authData.user.id)
     return { error: null }
   }

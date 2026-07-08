@@ -1,32 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { supabase, District } from '../lib/supabase'
+
+// Clean, exhaustive list of all 64 districts in Bangladesh grouped by division
+const BANGLADESH_DISTRICTS = [
+  { division: 'Barishal', districts: ['Barguna', 'Barishal', 'Bhola', 'Jhalokati', 'Patuakhali', 'Pirojpur'] },
+  { division: 'Chattogram', districts: ['Bandarban', 'Brahmanbaria', 'Chandpur', 'Chattogram', 'Cox\'s Bazar', 'Feni', 'Khagrachhari', 'Lakshmipur', 'Noakhali', 'Rangamati'] },
+  { division: 'Dhaka', districts: ['Dhaka', 'Faridpur', 'Gazipur', 'Gopalganj', 'Kishoreganj', 'Madaripur', 'Manikganj', 'Munshiganj', 'Narayanganj', 'Narsingdi', 'Rajbari', 'Shariatpur', 'Tangail'] },
+  { division: 'Khulna', districts: ['Bagerhat', 'Chuadanga', 'Jessore', 'Jhenaidah', 'Khulna', 'Kushtia', 'Magura', 'Meherpur', 'Narail', 'Satkhira'] },
+  { division: 'Mymensingh', districts: ['Jamalpur', 'Mymensingh', 'Netrokona', 'Sherpur'] },
+  { division: 'Rajshahi', districts: ['Bogra', 'Joypurhat', 'Naogaon', 'Natore', 'Nawabganj', 'Pabna', 'Rajshahi', 'Sirajganj'] },
+  { division: 'Rangpur', districts: ['Dinajpur', 'Gaibandha', 'Kurigram', 'Lalmonirhat', 'Nilphamari', 'Panchagarh', 'Rangpur', 'Thakurgaon'] },
+  { division: 'Sylhet', districts: ['Habiganj', 'Moulvibazar', 'Sunamganj', 'Sylhet'] }
+]
 
 export default function AuthPage() {
   const navigate = useNavigate()
-  const { signIn, signUp } = useAuth()
+  const { signUp, signIn } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [districts, setDistricts] = useState<District[]>([])
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
+  const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [role, setRole] = useState<'consumer' | 'seller' | 'agent'>('consumer')
-  const [districtId, setDistrictId] = useState('')
-  const [businessName, setBusinessName] = useState('')
-  const [nationalId, setNationalId] = useState('')
-
-  useEffect(() => {
-    supabase
-      .from('districts')
-      .select('*')
-      .order('name')
-      .then(({ data }) => setDistricts(data ?? []))
-  }, [])
+  const [role, setRole] = useState<'CONSUMER' | 'SELLER' | 'AGENT'>('CONSUMER')
+  const [districtName, setDistrictName] = useState('')
+  const [shopName, setShopName] = useState('')
+  const [nidNumber, setNidNumber] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -38,18 +40,18 @@ export default function AuthPage() {
       if (error) setError(error)
       else navigate('/dashboard')
     } else {
-      if (role === 'seller' && !businessName) {
-        setError('Business name is required for sellers')
+      if (!districtName) {
+        setError('Please select your home or operating district')
         setLoading(false)
         return
       }
-      if (role === 'agent' && !districtId) {
-        setError('Please select your operating district')
+      if (role === 'SELLER' && !shopName) {
+        setError('Shop name is required for sellers')
         setLoading(false)
         return
       }
-      if ((role === 'seller' || role === 'agent') && !nationalId) {
-        setError('National ID is required')
+      if ((role === 'SELLER' || role === 'AGENT') && !nidNumber) {
+        setError('National ID (NID) is required')
         setLoading(false)
         return
       }
@@ -57,12 +59,12 @@ export default function AuthPage() {
       const { error } = await signUp({
         email,
         password,
-        fullName,
-        phone,
+        name,
+        phone: phone || null,
         role,
-        districtId,
-        businessName,
-        nationalId,
+        district: districtName,
+        nidNumber: nidNumber || null,
+        shopName: shopName || null,
       })
       
       if (error) setError(error)
@@ -91,25 +93,12 @@ export default function AuthPage() {
           <p className="text-primary-100 text-lg leading-relaxed mb-8 max-w-md">
             Join Bangladesh's first trust-centric marketplace where every product is physically inspected by local district agents before reaching you.
           </p>
-          <div className="space-y-3">
-            {[
-              'Physical agent verification on every product',
-              'Filter authentic goods by district of origin',
-              'Real-time order tracking and direct chats',
-            ].map((f) => (
-              <div key={f} className="flex items-center gap-3 text-primary-100">
-                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs">✓</div>
-                <span>{f}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
       {/* Right panel - Form */}
       <div className="flex-1 flex items-center justify-center p-6 bg-gray-50 overflow-y-auto">
         <div className="w-full max-w-md py-8">
-          {/* Mobile logo header */}
           <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
             <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center text-white font-bold text-lg">K</div>
             <span className="font-display font-bold text-xl">Keokradong</span>
@@ -133,40 +122,51 @@ export default function AuthPage() {
               <>
                 <div>
                   <label className="label">Full Name</label>
-                  <input className="input" value={fullName} onChange={e => setFullName(e.target.value)} required placeholder="Your full name" />
+                  <input className="input" value={name} onChange={e => setName(e.target.value)} required placeholder="Your full name" />
                 </div>
                 <div>
                   <label className="label">Register as</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {(['consumer', 'seller', 'agent'] as const).map(r => (
+                    {(['CONSUMER', 'SELLER', 'AGENT'] as const).map(r => (
                       <button key={r} type="button" onClick={() => setRole(r)}
                         className={`px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${role === r ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                        {r === 'consumer' ? '🛍️ Consumer' : r === 'seller' ? '🌾 Seller' : '🔍 Agent'}
+                        {r === 'CONSUMER' ? '🛍️ Consumer' : r === 'SELLER' ? '🌾 Seller' : '🔍 Agent'}
                       </button>
                     ))}
                   </div>
                 </div>
-                {role === 'seller' && (
+                {role === 'SELLER' && (
                   <div>
-                    <label className="label">Business / Shop Name</label>
-                    <input className="input" value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="e.g. Rajshahi Mango Farm" />
+                    <label className="label">Shop Name</label>
+                    <input className="input" value={shopName} onChange={e => setShopName(e.target.value)} placeholder="e.g. Rajshahi Fruit Palace" />
                   </div>
                 )}
-                {(role === 'seller' || role === 'agent') && (
+                {(role === 'SELLER' || role === 'AGENT') && (
                   <div>
                     <label className="label">National ID (NID)</label>
-                    <input className="input" value={nationalId} onChange={e => setNationalId(e.target.value)} placeholder="Your NID number" />
+                    <input className="input" value={nidNumber} onChange={e => setNidNumber(e.target.value)} placeholder="Your NID number" />
                   </div>
                 )}
-                {role === 'agent' && (
-                  <div>
-                    <label className="label">Operating District</label>
-                    <select className="input" value={districtId} onChange={e => setDistrictId(e.target.value)}>
-                      <option value="">Select your district</option>
-                      {districts.map(d => <option key={d.id} value={d.id}>{d.name} — {d.division}</option>)}
-                    </select>
-                  </div>
-                )}
+                <div>
+                  <label className="label">District</label>
+                  <select 
+                    className="input bg-white" 
+                    value={districtName} 
+                    onChange={e => setDistrictName(e.target.value)} 
+                    required
+                  >
+                    <option value="">Select your district</option>
+                    {BANGLADESH_DISTRICTS.map((group) => (
+                      <optgroup key={group.division} label={`${group.division} Division`}>
+                        {group.districts.map((dist) => (
+                          <option key={dist} value={dist}>
+                            {dist}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="label">Phone Number</label>
                   <input className="input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01XXXXXXXXX" />
