@@ -10,17 +10,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 })
 
-export type Role = 'CONSUMER' | 'SELLER' | 'AGENT' | 'ADMIN' | 'SUPER_ADMIN'
+export type Role = 'consumer' | 'seller' | 'agent' | 'admin' | 'super_admin'
 
 export interface Profile {
   id: string
   email: string
   phone: string | null
-  name: string
+  full_name: string
   role: Role
-  district: string | null
-  shop_name: string | null
-  nid_number: string | null
+  district_id: string | null
+  business_name: string | null
+  national_id: string | null
   status: string
   avatar_url: string | null
   created_at: string

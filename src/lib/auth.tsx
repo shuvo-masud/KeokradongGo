@@ -17,122 +17,336 @@ interface AuthContextType {
 interface SignUpData {
   email: string
   password: string
-  name: string
-  phone?: string | null
-  role: 'CONSUMER' | 'SELLER' | 'AGENT' | 'ADMIN' | 'SUPER_ADMIN'
-  district: string
-  shopName?: string | null
-  nidNumber?: string | null
+  fullName: string
+  phone?: string
+  role: 'consumer' | 'seller' | 'agent' | 'admin' | 'super_admin'
+  districtId?: string
+  businessName?: string
+  nationalId?: string
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(false)
 
-  // Safe internal profile fetcher
+
   async function loadProfile(uid: string) {
-    try {
-      setProfileLoading(true)
-      const { data, error } = await supabase.from('users').select('*').eq('id', uid).maybeSingle()
-      if (error) throw error
-      setProfile(data as Profile | null)
-    } catch (err) {
-      console.error("Error loading user profile:", err)
+
+    setProfileLoading(true)
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        district:districts(*)
+      `)
+      .eq('id', uid)
+      .maybeSingle()
+
+
+    if (error) {
+      console.error('Profile loading error:', error.message)
       setProfile(null)
-    } finally {
-      setProfileLoading(false)
+    } else {
+      setProfile(data as Profile | null)
     }
+
+    setProfileLoading(false)
   }
 
+
+
   useEffect(() => {
-    let isMounted = true
 
-    // Clean single pipeline handling all auth state logic securely
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
-      if (!isMounted) return
+    async function initialize() {
 
-      setSession(currentSession)
-      setUser(currentSession?.user ?? null)
+      const {
+        data: { session }
+      } = await supabase.auth.getSession()
 
-      if (currentSession?.user) {
-        await loadProfile(currentSession.user.id)
-      } else {
-        setProfile(null)
+
+      setSession(session)
+      setUser(session?.user ?? null)
+
+
+      if (session?.user) {
+        await loadProfile(session.user.id)
       }
 
-      // Always guarantee loading turns false exactly once after profile decisions complete
+
       setLoading(false)
-    })
+    }
+
+
+    initialize()
+
+
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+
+        setSession(session)
+        setUser(session?.user ?? null)
+
+
+        if (session?.user) {
+          await loadProfile(session.user.id)
+        } else {
+          setProfile(null)
+        }
+
+      }
+    )
+
 
     return () => {
-      isMounted = false
-      listener.subscription.unsubscribe()
+      subscription.unsubscribe()
     }
+
   }, [])
 
+
+
   async function signIn(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { error: error.message }
+
+    const { data, error } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+
+    if (error) {
+      return {
+        error: error.message
+      }
+    }
+
+
     if (data.user) {
       await loadProfile(data.user.id)
     }
-    return { error: null }
+
+
+    return {
+      error: null
+    }
+
   }
+
+
+
 
   async function signUp(data: SignUpData) {
-    const { data: authData, error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-    })
-    if (error) return { error: error.message }
-    if (!authData.user) return { error: 'Registration failed' }
 
-    const { error: profileError } = await supabase.from('users').insert({
-      id: authData.user.id,
-      name: data.name,
-      phone: data.phone ?? null,
-      role: data.role.toUpperCase(),
-      district: data.district,
-      nid_number: data.nidNumber ?? null,
-      shop_name: data.shopName ?? null,
+
+    const {
+      data: authData,
+      error
+    } = await supabase.auth.signUp({
+
+      email: data.email,
+
+      password: data.password,
+
+
+      options: {
+
+        data: {
+
+          full_name: data.fullName.trim(),
+
+          phone: data.phone?.trim() || null,
+
+          role: data.role,
+
+          district_id: data.districtId || null,
+
+          business_name:
+            data.businessName?.trim() || null,
+
+          national_id:
+            data.nationalId?.trim() || null
+
+        }
+
+      }
+
     })
-    
-    if (profileError) return { error: profileError.message }
+
+
+
+    if (error) {
+      return {
+        error: error.message
+      }
+    }
+
+
+
+    if (!authData.user) {
+
+      return {
+        error: 'Registration failed'
+      }
+
+    }
+
+
+
+    const accountStatus =
+      data.role === 'seller' ||
+      data.role === 'agent'
+        ? 'pending'
+        : 'active'
+
+
+
+    const {
+      error: profileError
+    } = await supabase
+      .from('profiles')
+      .insert({
+
+        id: authData.user.id,
+
+        email: data.email,
+
+        full_name:
+          data.fullName.trim(),
+
+        phone:
+          data.phone?.trim() || null,
+
+
+        role:
+          data.role,
+
+
+        district_id:
+          data.districtId || null,
+
+
+        business_name:
+          data.businessName?.trim() || null,
+
+
+        national_id:
+          data.nationalId?.trim() || null,
+
+
+        status:
+          accountStatus
+
+      })
+
+
+
+    if (profileError) {
+
+      console.error(
+        'Profile creation error:',
+        profileError
+      )
+
+
+      return {
+        error: profileError.message
+      }
+
+    }
+
+
 
     await loadProfile(authData.user.id)
-    return { error: null }
+
+
+
+    return {
+      error: null
+    }
+
   }
+
+
+
 
   async function signOut() {
-    try {
-      await supabase.auth.signOut()
-    } catch (err) {
-      console.error("Signout caused an exception:", err)
-    } finally {
-      setProfile(null)
-      setSession(null)
-      setUser(null)
-    }
+
+    await supabase.auth.signOut()
+
+    setSession(null)
+    setUser(null)
+    setProfile(null)
+
   }
+
+
 
   async function refreshProfile() {
-    if (user) await loadProfile(user.id)
+
+    if (user) {
+      await loadProfile(user.id)
+    }
+
   }
 
+
+
+
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, profileLoading, signIn, signUp, signOut, refreshProfile }}>
+
+    <AuthContext.Provider
+
+      value={{
+        session,
+        user,
+        profile,
+        loading,
+        profileLoading,
+        signIn,
+        signUp,
+        signOut,
+        refreshProfile
+      }}
+
+    >
+
       {children}
+
     </AuthContext.Provider>
+
   )
+
 }
 
+
+
+
 export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
+
+  const context = useContext(AuthContext)
+
+
+  if (!context) {
+
+    throw new Error(
+      'useAuth must be used inside AuthProvider'
+    )
+
+  }
+
+
+  return context
+
 }

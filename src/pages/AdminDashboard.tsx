@@ -36,16 +36,48 @@ function UsersView() {
     return true
   })
 
-  async function updateStatus(userId: string, status: string) {
-    await supabase.from('profiles').update({ status }).eq('id', userId)
-    await supabase.from('notifications').insert({
-      user_id: userId,
-      type: 'account',
-      title: status === 'active' ? 'Account Approved' : 'Account Suspended',
-      body: status === 'active' ? 'Your account has been approved by admin.' : 'Your account has been suspended. Please contact support.',
-    })
-    load()
+ async function updateStatus(userId: string, status: 'active' | 'pending' | 'suspended') {
+  // Get the target user's role
+  const { data: targetUser, error: fetchError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single()
+
+  if (fetchError) {
+    alert(fetchError.message)
+    return
   }
+
+  // Admins may only change seller/agent accounts
+  if (!['seller', 'agent'].includes(targetUser.role)) {
+    alert('You are only allowed to change the status of sellers and agents.')
+    return
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ status })
+    .eq('id', userId)
+
+  if (error) {
+    alert(error.message)
+    return
+  }
+
+  await supabase.from('notifications').insert({
+    user_id: userId,
+    type: 'account',
+    title: status === 'active'
+      ? 'Account Approved'
+      : 'Account Suspended',
+    body: status === 'active'
+      ? 'Your account has been approved by an administrator.'
+      : 'Your account has been suspended. Please contact support.',
+  })
+
+  load()
+}
 
   const districtName = (id: string | null) => districts.find(d => d.id === id)?.name ?? '—'
 
