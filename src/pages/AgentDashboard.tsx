@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import AgentOrdersView from '../components/agent/AgentOrdersView'
 import {
   supabase,
   Product,
@@ -33,12 +34,67 @@ type AgentProduct = Product & {
 }
 
 export default function AgentDashboard() {
-  const [params] = useSearchParams()
-  const tab = params.get('tab')
+  const [params, setParams] = useSearchParams()
 
-  return tab === 'earnings'
-    ? <EarningsView />
-    : <VerifyView />
+  const tab = params.get('tab') || 'verify'
+
+
+  return (
+    <div className="space-y-6">
+
+      <div className="card p-4 flex gap-3">
+
+        <button
+          onClick={() => setParams({tab:'verify'})}
+          className={
+            tab === 'verify'
+            ? 'btn-primary'
+            : 'btn-secondary'
+          }
+        >
+          Verification
+        </button>
+
+
+        <button
+          onClick={() => setParams({tab:'orders'})}
+          className={
+            tab === 'orders'
+            ? 'btn-primary'
+            : 'btn-secondary'
+          }
+        >
+          Orders
+        </button>
+
+
+        <button
+          onClick={() => setParams({tab:'earnings'})}
+          className={
+            tab === 'earnings'
+            ? 'btn-primary'
+            : 'btn-secondary'
+          }
+        >
+          Earnings
+        </button>
+
+      </div>
+
+
+      {
+        tab === 'orders'
+        ? <AgentOrdersView />
+
+        : tab === 'earnings'
+        ? <EarningsView />
+
+        : <VerifyView />
+      }
+
+
+    </div>
+  )
 }
 
 

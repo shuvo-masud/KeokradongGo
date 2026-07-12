@@ -264,12 +264,16 @@ function BrowseView() {
       if (!order) return
 
       const items = cart.map(c => ({
-        order_id: order.id,
-        product_id: c.product.id,
-        seller_id: c.product.seller_id,
-        quantity: c.quantity,
-        unit_price: c.product.price,
-      }))
+  order_id: order.id,
+  product_id: c.product.id,
+  seller_id: c.product.seller_id,
+
+  // seller/product district
+  district_id: c.product.district_id,
+
+  quantity: c.quantity,
+  unit_price: c.product.price,
+}))
       await supabase.from('order_items').insert(items)
 
       const sellerIds = [...new Set(cart.map(c => c.product.seller_id))]
@@ -740,7 +744,7 @@ function OrdersView() {
 
   useEffect(() => { loadOrders() }, [loadOrders])
 
-  const STATUS_LABELS: Record<string, string> = { pending: 'অর্ডার গৃহীত হয়েছে', confirmed: 'কনফার্মড', shipped: 'শিপিং চলছে', delivered: 'ডেলিভারি সম্পন্ন', cancelled: 'বাতিল' }
+  const STATUS_LABELS: Record<string, string> = { pending: 'অর্ডার গৃহীত হয়েছে', assigned: 'কনফার্মড', on_delivery: 'শিপিং চলছে', delivered: 'ডেলিভারি সম্পন্ন', cancelled: 'বাতিল' }
   const STATUS_COLORS: Record<string, string> = { pending: 'bg-amber-100 text-amber-800', confirmed: 'bg-blue-100 text-blue-800', shipped: 'bg-purple-100 text-purple-800', delivered: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-red-100 text-red-800' }
 
   if (loading) return <div className="text-center py-20 text-gray-400">অর্ডার লোড করা হচ্ছে...</div>

@@ -4,11 +4,412 @@ import { useAuth } from '../lib/auth'
 import { supabase, Profile, District, Dispute, Order } from '../lib/supabase'
 
 export default function AdminDashboard() {
-  const [searchParams] = useSearchParams()
-  const tab = searchParams.get('tab') || 'users'
-  if (tab === 'disputes') return <DisputesView />
-  if (tab === 'analytics') return <AnalyticsView />
-  return <UsersView />
+
+ const [searchParams,setSearchParams] = useSearchParams()
+
+ const tab = searchParams.get('tab') || 'users'
+
+
+ return (
+  <div className="space-y-6">
+
+    <div className="flex gap-3">
+
+      <button
+      onClick={()=>setSearchParams({tab:'users'})}
+      className="btn-primary">
+        Users
+      </button>
+
+      <button
+      onClick={()=>setSearchParams({tab:'orders'})}
+      className="btn-primary">
+        Orders
+      </button>
+
+      <button
+      onClick={()=>setSearchParams({tab:'disputes'})}
+      className="btn-primary">
+        Disputes
+      </button>
+
+      <button
+      onClick={()=>setSearchParams({tab:'analytics'})}
+      className="btn-primary">
+        Analytics
+      </button>
+
+    </div>
+
+
+    {
+      tab==='orders' && <OrdersManagement />
+    }
+
+    {
+      tab==='users' && <UsersView />
+    }
+
+    {
+      tab==='disputes' && <DisputesView />
+    }
+
+    {
+      tab==='analytics' && <AnalyticsView />
+    }
+
+
+  </div>
+ )
+
+}
+
+function OrdersManagement(){
+
+const [orders,setOrders]=useState<any[]>([])
+const [agents,setAgents]=useState<Profile[]>([])
+const [status,setStatus]=useState('pending')
+
+
+async function load(){
+
+const {data:ordersData}=await supabase
+.from('orders')
+.select(`
+*,
+buyer:profiles!buyer_id(*),
+items:order_items(
+ *,
+ product:products(*),
+ district:districts(*)
+)
+`)
+.eq('status',status)
+.order('created_at',{ascending:false})
+
+
+setOrders(ordersData || [])
+
+
+
+const {data:agentData}=await supabase
+.from('profiles')
+.select('*')
+.eq('role','agent')
+.eq('status','active')
+
+
+setAgents(agentData || [])
+
+}
+
+
+useEffect(()=>{
+load()
+},[status])
+
+
+
+async function assignAgent(
+orderId:string,
+agentId:string
+){
+
+
+await supabase
+.from('orders')
+.update({
+ assigned_agent_id:agentId,
+ assigned_at:new Date().toISOString(),
+ status:'assigned'
+})
+.eq('id',orderId)
+
+
+
+await supabase
+.from('notifications')
+.insert({
+
+user_id:agentId,
+type:'order',
+title:'New Delivery Assigned',
+body:'You have received a new delivery order'
+
+})
+
+
+load()
+
+}
+
+
+
+
+return (
+
+<div className="space-y-6">
+
+
+<h1 className="font-display font-bold text-2xl">
+Order Management
+</h1>
+
+
+<div className="flex gap-2">
+
+{
+[
+'pending',
+'assigned',
+'confirmed',
+'shipped',
+'delivered'
+].map(s=>(
+
+<button
+
+key={s}
+
+onClick={()=>setStatus(s)}
+
+className={`
+px-4 py-2 rounded-lg
+${status===s?
+'bg-primary-600 text-white':
+'bg-gray-100'
+}
+`}
+>
+
+{s}
+
+</button>
+
+))
+}
+
+</div>
+
+
+
+<div className="space-y-4">
+
+
+{
+orders.map(order=>(
+
+<div
+key={order.id}
+className="card p-5 space-y-4"
+>
+
+
+<div className="flex justify-between">
+
+
+<div>
+
+<h3 className="font-bold">
+
+Order #{order.id.slice(0,8)}
+
+</h3>
+
+
+<p className="text-sm text-gray-500">
+
+Buyer:
+{order.buyer?.full_name}
+
+</p>
+
+
+</div>
+
+
+
+<div className="font-bold text-primary-600">
+
+৳{order.total}
+
+</div>
+
+
+</div>
+
+
+
+<div>
+
+<h4 className="font-semibold">
+Products
+</h4>
+
+
+{
+order.items.map((item:any)=>(
+
+<div
+key={item.id}
+className="text-sm"
+>
+
+{item.product.title}
+
+-
+{item.district?.name}
+
+
+</div>
+
+))
+
+}
+
+</div>
+
+
+
+{
+status === 'pending' && (
+
+<AssignAgentBox
+  orderId={order.id}
+  agents={agents}
+  onAssigned={load}
+/>
+
+)
+}
+
+
+
+</div>
+
+
+))
+
+}
+
+
+</div>
+
+
+</div>
+
+)
+
+
+}
+
+
+
+function AssignAgentBox({
+  orderId,
+  agents,
+  onAssigned
+}:{
+  orderId:string
+  agents:Profile[]
+  onAssigned:()=>void
+}){
+
+const [selectedAgent,setSelectedAgent]=useState('')
+
+
+async function assign(){
+
+if(!selectedAgent){
+  alert('Please select an agent')
+  return
+}
+
+
+const {error}=await supabase
+.from('orders')
+.update({
+  assigned_agent_id:selectedAgent,
+  assigned_at:new Date().toISOString(),
+  status:'assigned'
+})
+.eq('id',orderId)
+
+
+if(error){
+  alert(error.message)
+  return
+}
+
+
+// notify agent
+
+await supabase
+.from('notifications')
+.insert({
+ user_id:selectedAgent,
+ type:'order',
+ title:'New Delivery Assigned',
+ body:'A new order has been assigned to you.'
+})
+
+
+alert('Agent assigned successfully')
+
+onAssigned()
+
+}
+
+
+
+return (
+
+<div className="flex gap-3 items-center">
+
+<select
+className="input flex-1"
+value={selectedAgent}
+onChange={(e)=>setSelectedAgent(e.target.value)}
+>
+
+<option value="">
+Select delivery agent
+</option>
+
+
+{
+agents.map(agent=>(
+
+<option
+key={agent.id}
+value={agent.id}
+>
+
+{agent.full_name}
+
+</option>
+
+))
+
+}
+
+
+</select>
+
+
+<button
+onClick={assign}
+className="btn-primary"
+disabled={!selectedAgent}
+>
+Assign Agent
+</button>
+
+
+</div>
+
+)
+
 }
 
 function UsersView() {
