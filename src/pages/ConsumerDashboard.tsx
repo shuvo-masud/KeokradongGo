@@ -32,7 +32,7 @@ export default function ConsumerDashboard() {
   const [showAdmin, setShowAdmin] = useState(false)
   const [showSuperAdmin, setShowSuperAdmin] = useState(false)
   const [showAgent, setShowAgent] = useState(false)
-  const [showSeller, setShowSeller] = useState(false)
+
 
   const authContext = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -62,22 +62,7 @@ export default function ConsumerDashboard() {
     </>
   )
 }
- if (showSeller) {
-  return (
-    <>
-      <div className="mb-6 flex justify-end">
-        <button
-          className="btn-outline"
-          onClick={() => setShowSeller(false)}
-        >
-          ← Consumer Dashboard
-        </button>
-      </div>
-
-      <SellerDashboard />
-    </>
-  )
-}
+ 
  if (showAdmin) {
   return (
     <>
@@ -149,16 +134,7 @@ if (showAgent) {
             </button>
          </div>
           )}
-           {profile?.role === 'seller' && (
-          <div className="flex justify-end mb-6">
-            <button
-              className="btn-primary"
-                 onClick={() => setShowSeller(true)}
-                       >
-                   Seller Dashboard
-            </button>
-         </div>
-          )}
+
           <button
             onClick={() => setSearchParams({ tab: 'browse' })}
             className={`px-4 py-2 rounded-xl font-medium text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
