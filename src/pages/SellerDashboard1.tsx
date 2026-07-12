@@ -8,7 +8,7 @@ import SellerOrdersView from '../components/seller/SellerOrdersView'
 
 export default function SellerDashboard() {
   const { profile } = useAuth()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
 
   const tab = params.get('tab') || 'overview'
 
@@ -28,7 +28,6 @@ export default function SellerDashboard() {
     )
   }
 
-
   if (profile?.status === 'suspended') {
     return (
       <div className="max-w-lg mx-auto mt-20 card p-10 text-center">
@@ -45,81 +44,17 @@ export default function SellerDashboard() {
     )
   }
 
+  switch (tab) {
+    case 'add':
+      return <AddProductView />
 
-  const tabs = [
-    {
-      id: 'overview',
-      label: 'Overview'
-    },
-    {
-      id: 'add',
-      label: 'Add Product'
-    },
-    {
-      id: 'products',
-      label: 'My Products'
-    },
-    {
-      id: 'orders',
-      label: 'Orders'
-    }
-  ]
+    case 'products':
+      return <ProductsView />
 
+    case 'orders':
+      return <SellerOrdersView />
 
-  return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-
-      <div className="card p-4 flex flex-wrap gap-3">
-
-        {
-          tabs.map((item)=>(
-            <button
-              key={item.id}
-              onClick={() =>
-                setParams({ tab: item.id })
-              }
-              className={
-                tab === item.id
-                ? "btn-primary"
-                : "btn-secondary"
-              }
-            >
-              {item.label}
-            </button>
-          ))
-        }
-
-      </div>
-
-
-      <div>
-
-        {
-          tab === 'add' &&
-          <AddProductView />
-        }
-
-
-        {
-          tab === 'products' &&
-          <ProductsView />
-        }
-
-
-        {
-          tab === 'orders' &&
-          <SellerOrdersView />
-        }
-
-
-        {
-          tab === 'overview' &&
-          <OverviewView />
-        }
-
-      </div>
-
-
-    </div>
-  )
+    default:
+      return <OverviewView />
+  }
 }

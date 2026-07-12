@@ -40,7 +40,10 @@ export interface Product {
   price: number
   category: string
   district_id: string
+
   image_url: string | null
+  image_path: string | null
+
   stock: number
   verification_status: 'pending' | 'verified' | 'rejected'
   assigned_agent_id: string | null
