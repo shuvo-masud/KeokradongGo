@@ -2,10 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { supabase, Product, District, Order, OrderItem, Profile, Chat, PlatformSettings } from '../lib/supabase'
-
+import SuperAdminDashboard from './SuperAdminDashboard'
+import AdminDashboard from './AdminDashboard'
+import AgentDashboard from './AgentDashboard'
+import SellerDashboard from './SellerDashboard'
 const CATEGORIES = ['All', 'Fruits', 'Textiles', 'Fish', 'Tea', 'Handicraft', 'Spices', 'Other']
 const CATEGORY_EMOJIS: Record<string, string> = {
   All: '✨', Fruits: '🥭', Textiles: '🥻', Fish: '🐟', Tea: '🍵', Handicraft: '🎨', Spices: '🌶️', Other: '📦'
+  
 }
 
 const PRODUCT_IMAGES: Record<string, string> = {
@@ -18,11 +22,18 @@ const PRODUCT_IMAGES: Record<string, string> = {
   Other: 'https://images.pexels.com/photos/4198023/pexels-photo-4198023.jpeg?auto=compress&cs=tinysrgb&w=600',
 }
 
+
 type ExtendedProduct = Product & { district: District; seller: Profile }
 type ExtendedOrder = Order & { items: (OrderItem & { product: Product })[] }
 interface CartItem { product: ExtendedProduct; quantity: number }
 
 export default function ConsumerDashboard() {
+  const { profile } = useAuth()
+  const [showAdmin, setShowAdmin] = useState(false)
+  const [showSuperAdmin, setShowSuperAdmin] = useState(false)
+  const [showAgent, setShowAgent] = useState(false)
+  const [showSeller, setShowSeller] = useState(false)
+
   const authContext = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = searchParams?.get('tab') || 'browse'
@@ -35,12 +46,119 @@ export default function ConsumerDashboard() {
       </div>
     )
   }
+  if (showSuperAdmin) {
+  return (
+    <>
+      <div className="mb-6 flex justify-end">
+        <button
+          className="btn-outline"
+          onClick={() => setShowSuperAdmin(false)}
+        >
+          ← Consumer Dashboard
+        </button>
+      </div>
+
+      <SuperAdminDashboard />
+    </>
+  )
+}
+ if (showSeller) {
+  return (
+    <>
+      <div className="mb-6 flex justify-end">
+        <button
+          className="btn-outline"
+          onClick={() => setShowSeller(false)}
+        >
+          ← Consumer Dashboard
+        </button>
+      </div>
+
+      <SellerDashboard />
+    </>
+  )
+}
+ if (showAdmin) {
+  return (
+    <>
+      <div className="mb-6 flex justify-end">
+        <button
+          className="btn-outline"
+          onClick={() => setShowAdmin(false)}
+        >
+          ← Consumer Dashboard
+        </button>
+      </div>
+
+      <AdminDashboard />
+    </>
+  )
+}
+if (showAgent) {
+  return (
+    <>
+      <div className="mb-6 flex justify-end">
+        <button
+          className="btn-outline"
+          onClick={() => setShowAgent(false)}
+        >
+          ← Consumer Dashboard
+        </button>
+      </div>
+
+      <AgentDashboard />
+    </>
+  )
+}
 
   return (
+
+    
+    
     <div className="space-y-8 pb-12">
       {/* Top Tab Navigation */}
       <div className="flex items-center justify-between border-b border-gray-200 pb-4">
         <div className="flex gap-2 sm:gap-4 overflow-x-auto">
+          {profile?.role === 'admin' && (
+          <div className="flex justify-end mb-6">
+            <button
+              className="btn-primary"
+                 onClick={() => setShowAdmin(true)}
+                       >
+                   Admin Dashboard
+            </button>
+         </div>
+          )}
+           {profile?.role === 'super_admin' && (
+          <div className="flex justify-end mb-6">
+            <button
+              className="btn-primary"
+                 onClick={() => setShowSuperAdmin(true)}
+                       >
+                   Supper_Admin Dashboard
+            </button>
+         </div>
+          )}
+          {profile?.role === 'agent' && (
+          <div className="flex justify-end mb-6">
+            <button
+              className="btn-primary"
+                 onClick={() => setShowAgent(true)}
+                       >
+                   Agent Dashboard
+            </button>
+         </div>
+          )}
+           {profile?.role === 'seller' && (
+          <div className="flex justify-end mb-6">
+            <button
+              className="btn-primary"
+                 onClick={() => setShowSeller(true)}
+                       >
+                   Seller Dashboard
+            </button>
+         </div>
+          )}
           <button
             onClick={() => setSearchParams({ tab: 'browse' })}
             className={`px-4 py-2 rounded-xl font-medium text-sm transition-all whitespace-nowrap flex items-center gap-2 ${

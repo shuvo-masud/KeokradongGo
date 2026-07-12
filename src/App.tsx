@@ -113,16 +113,16 @@ if (
       return <ConsumerDashboard />
 
     case 'seller':
-      return <SellerDashboard />
+      return <ConsumerDashboard />
 
     case 'agent':
-      return <AgentDashboard />
+      return <ConsumerDashboard />
 
     case 'admin':
-      return <AdminDashboard />
+      return <ConsumerDashboard />
 
     case 'super_admin':
-      return <SuperAdminDashboard />
+      return <ConsumerDashboard />
 
     default:
       return <ConsumerDashboard />
