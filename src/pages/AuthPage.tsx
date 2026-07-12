@@ -75,43 +75,61 @@ export default function AuthPage() {
     }
   }, [loading, user, profile, navigate])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault()
 
-    setError(null)
-    setFormLoading(true)
+  setError(null)
+  setFormLoading(true)
 
-    try {
-      if (mode === 'login') {
-        const { error } = await signIn(email, password)
+  try {
+    if (mode === 'login') {
+      const { error } = await signIn(email, password)
 
-        if (error) throw new Error(error)
-      } else {
-        const { error } = await signUp({
-          email,
-          password,
-          fullName: name.trim(),
-          phone: phone.trim(),
-          role,
-          districtId: districtId || undefined,
-          businessName:
-            role === 'seller'
-              ? shopName.trim()
-              : undefined,
-          nationalId:
-            role !== 'consumer'
-              ? nidNumber.trim()
-              : undefined,
-        })
+      if (error) throw new Error(error)
 
-        if (error) throw new Error(error)
-      }
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed')
-    } finally {
-      setFormLoading(false)
+    } else {
+
+      const { error } = await signUp({
+        email,
+        password,
+        fullName: name.trim(),
+        phone: phone.trim(),
+        role,
+        districtId: districtId || undefined,
+        businessName:
+          role === 'seller'
+            ? shopName.trim()
+            : undefined,
+        nationalId:
+          role !== 'consumer'
+            ? nidNumber.trim()
+            : undefined,
+      })
+
+      if (error) throw new Error(error)
+
+      // SUCCESS: clear the form
+      setName('')
+      setPhone('')
+      setEmail('')
+      setPassword('')
+      setRole('consumer')
+      setShopName('')
+      setNidNumber('')
+      setDistrictId('')
+
+      // Switch back to login
+      setMode('login')
+
+      alert('Confirm your Email & you are ready to sign in!')
     }
+
+  } catch (err: any) {
+    setError(err.message || 'Authentication failed')
+  } finally {
+    setFormLoading(false)
   }
+}
 
   const inputClass =
     'w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all'

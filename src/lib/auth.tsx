@@ -148,135 +148,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   async function signUp(data: SignUpData) {
+  const { data: authData, error } = await supabase.auth.signUp({
+    email: data.email,
+    password: data.password,
+    options: {
+      data: {
+        full_name: data.fullName.trim(),
+        phone: data.phone?.trim() || null,
+        role: data.role,
+        district_id: data.districtId || null,
+        business_name: data.businessName?.trim() || null,
+        national_id: data.nationalId?.trim() || null,
+      },
+    },
+  })
 
-
-    const {
-      data: authData,
-      error
-    } = await supabase.auth.signUp({
-
-      email: data.email,
-
-      password: data.password,
-
-
-      options: {
-
-        data: {
-
-          full_name: data.fullName.trim(),
-
-          phone: data.phone?.trim() || null,
-
-          role: data.role,
-
-          district_id: data.districtId || null,
-
-          business_name:
-            data.businessName?.trim() || null,
-
-          national_id:
-            data.nationalId?.trim() || null
-
-        }
-
-      }
-
-    })
-
-
-
-    if (error) {
-      return {
-        error: error.message
-      }
-    }
-
-
-
-    if (!authData.user) {
-
-      return {
-        error: 'Registration failed'
-      }
-
-    }
-
-
-
-    const accountStatus =
-      data.role === 'seller' ||
-      data.role === 'agent'
-        ? 'pending'
-        : 'active'
-
-
-
-    const {
-      error: profileError
-    } = await supabase
-      .from('profiles')
-      .insert({
-
-        id: authData.user.id,
-
-        email: data.email,
-
-        full_name:
-          data.fullName.trim(),
-
-        phone:
-          data.phone?.trim() || null,
-
-
-        role:
-          data.role,
-
-
-        district_id:
-          data.districtId || null,
-
-
-        business_name:
-          data.businessName?.trim() || null,
-
-
-        national_id:
-          data.nationalId?.trim() || null,
-
-
-        status:
-          accountStatus
-
-      })
-
-
-
-    if (profileError) {
-
-      console.error(
-        'Profile creation error:',
-        profileError
-      )
-
-
-      return {
-        error: profileError.message
-      }
-
-    }
-
-
-
-    await loadProfile(authData.user.id)
-
-
-
-    return {
-      error: null
-    }
-
+  if (error) {
+    return { error: error.message }
   }
+
+  if (!authData.user) {
+    return { error: 'Registration failed' }
+  }
+
+  // Only load profile if the user is immediately signed in
+  if (authData.session) {
+    await loadProfile(authData.user.id)
+  }
+
+  return { error: null }
+}
 
 
 
