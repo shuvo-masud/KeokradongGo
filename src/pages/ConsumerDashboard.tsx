@@ -563,7 +563,7 @@ function ProductModal({ product, onClose, onAddToCart }: { product: ExtendedProd
     if (!profile?.id || !product?.id || !receiverId) return
     const { data: existing } = await supabase.from('chats').select('*').eq('sender_id', profile.id).eq('receiver_id', receiverId).eq('product_id', product.id).maybeSingle()
     if (!existing) {
-      await supabase.from('chats').insert({ sender_id: profile.id, receiver_id: receiverId, product_id: product.id, message: `নমস্কার, আমি আপনার "${product.title}" পণ্যটি সম্পর্কে জানতে আগ্রহী।` })
+      await supabase.from('chats').insert({ sender_id: profile.id, receiver_id: receiverId, product_id: product.id, message: `হ্যালো!, আমি আপনার "${product.title}" পণ্যটি সম্পর্কে জানতে আগ্রহী।` })
     }
     onClose()
     navigate('/dashboard?tab=chats')
