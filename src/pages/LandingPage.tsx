@@ -1,15 +1,15 @@
 import { useNavigate } from 'react-router-dom'
 
 const ROLES = [
-  { icon: '🛍️', title: 'স্মার্ট ক্রেতা (Consumer)', desc: 'জেলা ভিত্তিক খাঁটি পণ্য খুঁজুন, ফিল্টার করুন এবং লোকাল এজেন্টের ভেরিফিকেশন রিপোর্ট ও রিয়েল-টাইম শিপিং ট্র্যাক করুন। প্রয়োজনে সেলার ও এজেন্টের সাথে সরাসরি চ্যাট করুন।', fromColor: 'from-primary-500', toColor: 'to-primary-700' },
-  { icon: '🌾', title: 'লোকাল উৎপাদক (Seller)', desc: 'আপনার নিজস্ব ডিজিটাল স্টোরফ্রন্ট তৈরি করুন। উৎপাদনে নিজস্ব জেলার মেটাডেটা যুক্ত করে খাঁটি ঐতিহ্যবাহী পণ্য লিস্টিং করুন এবং চমৎকার ড্যাশবোর্ডে সেলস অ্যানালিটিক্স মনিটর করুন।', fromColor: 'from-accent-500', toColor: 'to-accent-700' },
+  { icon: '🛍️', title: 'স্মার্ট ক্রেতা (Consumer)', desc: 'জেলা ভিত্তিক ঐতিহ্যবাহী ও আসল পণ্য খুঁজুন, ফিল্টার করুন এবং লোকাল এজেন্টের ভেরিফিকেশন রিপোর্ট ও রিয়েল-টাইম শিপিং ট্র্যাক করুন। প্রয়োজনে সেলার ও এজেন্টের সাথে সরাসরি চ্যাট করুন।', fromColor: 'from-primary-500', toColor: 'to-primary-700' },
+  { icon: '🌾', title: 'লোকাল উৎপাদক (Seller)', desc: 'আপনার নিজস্ব ডিজিটাল স্টোরফ্রন্ট তৈরি করুন। উৎপাদনে নিজস্ব জেলার মেটাডেটা যুক্ত করে নিজস্ব মানসম্পন্ন অথবা, খাঁটি ঐতিহ্যবাহী পণ্য লিস্টিং করুন এবং চমৎকার ড্যাশবোর্ডে সেলস অ্যানালিটিক্স মনিটর করুন।', fromColor: 'from-accent-500', toColor: 'to-accent-700' },
   { icon: '🔍', title: 'অনুমোদিত জেলা পরিদর্শক (Agent)', desc: 'সেলারদের আপলোড করা প্রতিটি পণ্যের ব্যাচ সশরীরে পরিদর্শন ও যাচাই করে নিশ্চিত করুন এবং প্রতি ভেরিফিকেশনে আকর্ষণীয় সার্ভিস ফি বা কমিশন (৳) আয় করুন।', fromColor: 'from-ocean-500', toColor: 'to-ocean-700' },
   { icon: '🛡️', title: 'আঞ্চলিক অ্যাডমিন (Admin)', desc: 'প্ল্যাটফর্মের স্বচ্ছতা বজায় রাখতে ব্যাকগ্রাউন্ড চেকের মাধ্যমে সেলার ও এজেন্টদের অনুমোদন বা সাসপেন্ড করুন। ক্রেতাদের যেকোনো কমপ্লেইন বা ডিসপুট টিকিট দ্রুত সমাধান করুন।', fromColor: 'from-emerald-500', toColor: 'to-emerald-700' },
   { icon: '👑', title: 'প্ল্যাটফর্ম ওনার (Super Admin)', desc: 'গ্লোবাল প্ল্যাটফর্ম ট্যাক্স, বেস শিপিং রেট এবং এজেন্টদের কমিশন পে-আউট কনফিগার করুন। ওভারআর্চিং সিস্টেম মেট্রিক্সের মাধ্যমে পুরো দেশের ব্যবসার সামগ্রিক অবস্থা পর্যবেক্ষণ করুন।', fromColor: 'from-amber-500', toColor: 'to-amber-700' },
 ]
 
 const TRUST_STEPS = [
-  { num: '০১', title: 'স্থানীয় লিস্টিং (Local Listing)', desc: 'বিক্রেতারা তাদের অঞ্চলের খাঁটি ঐতিহ্যবাহী পণ্য যেমন—রাজশাহীর আম, টাঙ্গাইলের শাড়ি বা চট্টগ্রামের শুটকি মাছ, অরিজিনাল জেলা উল্লেখ করে লিস্টিং করেন।' },
+  { num: '০১', title: 'স্থানীয় লিস্টিং (Local Listing)', desc: 'বিক্রেতারা তাদের নিজস্ব মানসম্পন্ন অথবা, অঞ্চলের ঐতিহ্যবাহী ও আসল পণ্য যেমন— টাঙ্গাইলের শাড়ি, চট্টগ্রামের শুটকি মাছ, বা রাজশাহীর আম অরিজিনাল জেলা উল্লেখ করে লিস্টিং করেন।' },
   { num: '০২', title: 'এজেন্ট পরিদর্শন (Agent Inspection)', desc: 'নির্দিষ্ট জেলার একজন অনুমোদিত ফিল্ড এজেন্ট সশরীরে বিক্রেতার কাছে যান, পণ্যের গুণগত মান ও খাঁটিত্ব যাচাই করেন এবং একটি ভেরিফিকেশন রিপোর্ট আপলোড করেন।' },
   { num: '০৩', title: 'স্মার্ট পারচেজ (Smart Buying)', desc: 'ক্রেতারা জেলা অনুযায়ী ব্রাউজ ও ফিল্টার করে শতভাগ গ্যারান্টিযুক্ত, এজেন্ট-ভেরিফাইড ও আসল ঐতিহ্যবাহী পণ্য নিশ্চিন্তে কেনাকাটা করেন।' },
 ]
@@ -55,15 +55,16 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary-50 via-white to-accent-50" />
         <div className="absolute top-20 right-10 w-72 h-72 bg-primary-200/30 rounded-full blur-3xl" />
         <div className="absolute bottom-10 left-10 w-96 h-96 bg-accent-200/20 rounded-full blur-3xl" />
+  
         
         <div className="max-w-7xl mx-auto relative">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-100 text-primary-800 text-sm font-medium mb-6 animate-fade-in">
               <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
-              সেরা সব দেশী ও খাঁটি পণ্যের বিকেন্দ্রীকৃত ট্রাস্ট-সেন্ট্রিক মার্কেটপ্লেস
+              সেরা সব দেশী, ঐতিহ্যবাহী ও আসল পণ্যের বিকেন্দ্রীকৃত ট্রাস্ট-সেন্ট্রিক মার্কেটপ্লেস
             </div>
             <h1 className="font-display font-extrabold text-4xl md:text-6xl leading-tight tracking-tight text-gray-900 animate-slide-up">
-              অরিজিনাল লোকাল পণ্য,
+              আসল লোকাল পণ্য,
               <br />
               <span className="text-primary-600">যাচাই করবেন বিশ্বস্ত এজেন্ট।</span>
             </h1>
@@ -90,6 +91,15 @@ export default function LandingPage() {
               <div><div className="font-display font-bold text-2xl text-gray-900">৫টি</div><div className="text-gray-500">বিশেষায়িত ড্যাশবোর্ড</div></div>
               <div><div className="font-display font-bold text-2xl text-gray-900">১০০%</div><div className="text-gray-500">এজেন্ট দ্বারা ভেরিফাইড</div></div>
             </div>
+                  <div className="absolute top-8 right-8 rotate-12 opacity-15 pointer-events-none">
+            <div className="border-8 border-primary-600 rounded-full w-48 h-48 flex items-center justify-center">
+             <div className="text-center font-bold text-primary-700">
+              <div className="text-xl">✓</div>
+               <div className="text-lg uppercase">Quality</div>
+               <div className="text-lg uppercase">Guaranteed</div>
+              </div>
+            </div>
+         </div>
           </div>
         </div>
       </section>
@@ -97,7 +107,7 @@ export default function LandingPage() {
       {/* Categories */}
       <section className="py-16 px-4 lg:px-6 bg-gray-50">
         <div className="max-w-7xl mx-auto">
-          <h2 className="font-display font-bold text-2xl md:text-3xl text-center mb-2 tracking-tight">জেলা ভিত্তিক ঐতিহ্যবাহী পণ্য</h2>
+          <h2 className="font-display font-bold text-2xl md:text-3xl text-center mb-2 tracking-tight">জেলা ভিত্তিক মানসম্পন্ন, ঐতিহ্যবাহী ও আসল পণ্য</h2>
           <p className="text-gray-500 text-center mb-10">প্রতিটি পণ্যের উৎস সরাসরি তার নিজস্ব অঞ্চলের মেটাডেটায় সনাক্তযোগ্য</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {CATEGORIES.map(cat => (
