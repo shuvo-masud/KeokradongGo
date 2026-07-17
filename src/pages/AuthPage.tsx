@@ -14,6 +14,7 @@ export default function AuthPage() {
   const {
     signIn,
     signUp,
+    resetPasswordForEmail,
     profile,
     user,
     loading,
@@ -24,16 +25,16 @@ export default function AuthPage() {
   const [districts, setDistricts] = useState<District[]>([])
   const [districtId, setDistrictId] = useState('')
 
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
   const [formLoading, setFormLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [forgotSent, setForgotSent] = useState(false)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [role, setRole] = useState<'consumer' | 'seller' | 'agent'>('consumer')
-  const [districtName, setDistrictName] = useState('')
   const [shopName, setShopName] = useState('')
   const [nidNumber, setNidNumber] = useState('')
 
@@ -85,9 +86,13 @@ async function handleSubmit(e: React.FormEvent) {
       const { error } = await signIn(email, password)
 
       if (error) throw new Error(error)
+    } else if (mode === 'forgot') {
+      const { error } = await resetPasswordForEmail(email.trim())
 
+      if (error) throw new Error(error)
+
+      setForgotSent(true)
     } else {
-
       const { error } = await signUp({
         email,
         password,
@@ -107,7 +112,6 @@ async function handleSubmit(e: React.FormEvent) {
 
       if (error) throw new Error(error)
 
-      // SUCCESS: clear the form
       setName('')
       setPhone('')
       setEmail('')
@@ -117,23 +121,21 @@ async function handleSubmit(e: React.FormEvent) {
       setNidNumber('')
       setDistrictId('')
 
-      // Switch back to login
       setMode('login')
 
       alert('Confirm your Email & you are ready to sign in!')
     }
-  const { data, error } = await supabase.auth.signUp({
-  email,
-  password,
-});
-
-console.log({ data, error });
-
   } catch (err: any) {
     setError(err.message || 'Authentication failed')
   } finally {
     setFormLoading(false)
   }
+}
+
+function switchMode(nextMode: 'login' | 'register' | 'forgot') {
+  setMode(nextMode)
+  setError(null)
+  setForgotSent(false)
 }
 
   const inputClass =
@@ -168,9 +170,27 @@ console.log({ data, error });
           <h2 className="text-2xl font-bold mb-6">
             {mode === 'login'
               ? 'Welcome Back'
+              : mode === 'forgot'
+              ? 'Forgot Password'
               : 'Join Keokradong'}
           </h2>
 
+          {mode === 'forgot' && forgotSent ? (
+            <div className="space-y-4 text-center">
+              <div className="text-5xl">📧</div>
+              <p className="text-gray-600 text-sm">
+                If an account exists for <strong>{email}</strong>, we sent a password reset link. Check your inbox and spam folder.
+              </p>
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                className="w-full rounded-xl bg-primary-600 py-2.5 font-semibold text-white transition-colors hover:bg-primary-700"
+              >
+                Back to Sign In
+              </button>
+            </div>
+          ) : (
+          <>
           {error && (
             <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
               {error}
@@ -287,6 +307,7 @@ console.log({ data, error });
               />
             </div>
 
+            {mode !== 'forgot' && (
             <div>
               <label className={labelClass}>Password</label>
               <input
@@ -295,8 +316,22 @@ console.log({ data, error });
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
               />
             </div>
+            )}
+
+            {mode === 'login' && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => switchMode('forgot')}
+                  className="text-sm font-medium text-primary-600 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"
@@ -307,6 +342,8 @@ console.log({ data, error });
                 ? 'Processing...'
                 : mode === 'login'
                 ? 'Sign In'
+                : mode === 'forgot'
+                ? 'Send Reset Link'
                 : 'Create Account'}
             </button>
           </form>
@@ -314,20 +351,26 @@ console.log({ data, error });
           <p className="mt-6 text-center text-sm text-gray-600">
             {mode === 'login'
               ? "Don't have an account? "
+              : mode === 'forgot'
+              ? 'Remember your password? '
               : 'Already have an account? '}
 
             <button
               type="button"
               onClick={() =>
-                setMode(mode === 'login' ? 'register' : 'login')
+                switchMode(mode === 'login' ? 'register' : 'login')
               }
               className="font-bold text-primary-600 hover:underline"
             >
               {mode === 'login'
                 ? 'Sign Up'
+                : mode === 'forgot'
+                ? 'Sign In'
                 : 'Sign In'}
             </button>
           </p>
+          </>
+          )}
 
         </div>
       </div>

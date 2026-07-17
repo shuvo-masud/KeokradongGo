@@ -10,6 +10,8 @@ interface AuthContextType {
   profileLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (data: SignUpData) => Promise<{ error: string | null }>
+  resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>
+  updatePassword: (password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -179,8 +181,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return { error: null }
 }
 
+  async function resetPasswordForEmail(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
 
+    if (error) {
+      return { error: error.message }
+    }
 
+    return { error: null }
+  }
+
+  async function updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password })
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    return { error: null }
+  }
 
   async function signOut() {
 
@@ -217,6 +238,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profileLoading,
         signIn,
         signUp,
+        resetPasswordForEmail,
+        updatePassword,
         signOut,
         refreshProfile
       }}
