@@ -48,8 +48,7 @@ export default function AuthPage() {
     } = await supabase
       .from('districts')
       .select('id, name, division')
-      .order('division')
-      .order('name')
+      .order('name', { ascending: true });
 
 
     if (error) {
@@ -123,6 +122,12 @@ async function handleSubmit(e: React.FormEvent) {
 
       alert('Confirm your Email & you are ready to sign in!')
     }
+  const { data, error } = await supabase.auth.signUp({
+  email,
+  password,
+});
+
+console.log({ data, error });
 
   } catch (err: any) {
     setError(err.message || 'Authentication failed')
