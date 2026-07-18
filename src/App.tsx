@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './lib/auth'
 
 import LandingPage from './pages/LandingPage'
 import AuthPage from './pages/AuthPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import ConsumerDashboard from './pages/ConsumerDashboard'
 import SellerDashboard from './pages/SellerDashboard'
 import AgentDashboard from './pages/AgentDashboard'
@@ -171,6 +172,11 @@ function AppRoutes() {
               <AuthPage />
             )
         }
+      />
+
+      <Route
+        path="/reset-password"
+        element={<ResetPasswordPage />}
       />
 
       <Route

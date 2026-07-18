@@ -7,8 +7,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
   },
 })
+
+export function getPasswordResetRedirectUrl() {
+  return `${window.location.origin}/reset-password`
+}
 
 export type Role = 'consumer' | 'seller' | 'agent' | 'admin' | 'super_admin'
 
