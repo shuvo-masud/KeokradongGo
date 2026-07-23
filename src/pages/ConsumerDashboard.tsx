@@ -95,7 +95,7 @@ export default function ConsumerDashboard() {
             ← Consumer Dashboard
           </button>
         </div>
-        <AgentDashboard />
+        <SellerDashboard/>
       </div>
     )
   }
