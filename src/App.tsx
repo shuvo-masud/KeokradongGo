@@ -114,7 +114,7 @@ if (
       return <ConsumerDashboard />
 
     case 'seller':
-      return <SellerDashboard />
+      return <ConsumerDashboard />
 
     case 'agent':
       return <ConsumerDashboard />

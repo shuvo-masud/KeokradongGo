@@ -5,7 +5,6 @@ const ROLES = [
   { icon: '🌾', title: 'লোকাল উৎপাদক (Seller)', desc: 'আপনার নিজস্ব ডিজিটাল স্টোরফ্রন্ট তৈরি করুন। উৎপাদনে নিজস্ব জেলার মেটাডেটা যুক্ত করে নিজস্ব মানসম্পন্ন অথবা, খাঁটি ঐতিহ্যবাহী পণ্য লিস্টিং করুন এবং চমৎকার ড্যাশবোর্ডে সেলস অ্যানালিটিক্স মনিটর করুন।', fromColor: 'from-accent-500', toColor: 'to-accent-700' },
   { icon: '🔍', title: 'অনুমোদিত জেলা পরিদর্শক (Agent)', desc: 'সেলারদের আপলোড করা প্রতিটি পণ্যের ব্যাচ সশরীরে পরিদর্শন ও যাচাই করে নিশ্চিত করুন এবং প্রতি ভেরিফিকেশনে আকর্ষণীয় সার্ভিস ফি বা কমিশন (৳) আয় করুন।', fromColor: 'from-ocean-500', toColor: 'to-ocean-700' },
   { icon: '🛡️', title: 'আঞ্চলিক অ্যাডমিন (Admin)', desc: 'প্ল্যাটফর্মের স্বচ্ছতা বজায় রাখতে ব্যাকগ্রাউন্ড চেকের মাধ্যমে সেলার ও এজেন্টদের অনুমোদন বা সাসপেন্ড করুন। ক্রেতাদের যেকোনো কমপ্লেইন বা ডিসপুট টিকিট দ্রুত সমাধান করুন।', fromColor: 'from-emerald-500', toColor: 'to-emerald-700' },
-  { icon: '👑', title: 'প্ল্যাটফর্ম ওনার (Super Admin)', desc: 'গ্লোবাল প্ল্যাটফর্ম ট্যাক্স, বেস শিপিং রেট এবং এজেন্টদের কমিশন পে-আউট কনফিগার করুন। ওভারআর্চিং সিস্টেম মেট্রিক্সের মাধ্যমে পুরো দেশের ব্যবসার সামগ্রিক অবস্থা পর্যবেক্ষণ করুন।', fromColor: 'from-amber-500', toColor: 'to-amber-700' },
 ]
 
 const TRUST_STEPS = [
@@ -22,6 +21,28 @@ const CATEGORIES = [
   { name: 'ইলিশ মাছ (Hilsha)', district: 'খুলনা', emoji: '🐠' },
   { name: 'আনারস (Pineapple)', district: 'সিলেট', emoji: '🍍' },
 ]
+export function LogoIcon({ className = "w-10 h-10" }: { className?: string }) {
+  return (
+    <svg 
+      viewBox="0 0 40 40" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      {/* Background Rounded Square */}
+      <rect width="40" height="40" rx="10" className="fill-primary-600" />
+      
+      {/* Mountain & K Vector Paths */}
+      <path 
+        d="M12 10V30M12 20L22 10M12 20L24 30M25 15L30 20L25 25" 
+        stroke="white" 
+        strokeWidth="3.5" 
+        strokeLinecap="round" 
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -31,11 +52,23 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white font-bold text-lg">K</div>
-            <span className="font-display font-bold text-lg tracking-tight">Keokradong</span>
-            <span className="hidden sm:inline text-sm text-gray-400 ml-1 font-normal">কেওক্রাডং</span>
+          
+          {/* Logo & Brand Wrapper */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+  <LogoIcon className="w-10 h-10 shrink-0" />
+</div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display font-bold text-lg tracking-tight">Keokradong</span>
+                <span className="hidden sm:inline text-sm text-gray-400 font-normal">কেওক্রাডং</span>
+              </div>
+              <p className="text-xs font-bold text-lg-500 block leading-tight">
+                Connecting 64 Districts
+              </p>
+            </div>
           </div>
+          
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
             <a href="#concept" className="hover:text-primary-600 transition-colors">মূল কনসেপ্ট</a>
             <a href="#roles" className="hover:text-primary-600 transition-colors">রোলস ও ড্যাশবোর্ড</a>
@@ -149,7 +182,6 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <div className="inline-block px-3 py-1 rounded-full bg-ocean-100 text-ocean-700 text-sm font-medium mb-4">মাল্টি-রোল ইকোসিস্টেম</div>
-            <h2 className="font-display font-bold text-2xl md:text-4xl mb-3 tracking-tight">৫টি বিশেষায়িত ড্যাশবোর্ড</h2>
             <p className="text-gray-500 max-w-2xl mx-auto">মার্কেটপ্লেসের প্রতিটি রোলের জন্য আলাদা ও কাস্টমাইজড ইউজার ইন্টারফেস ডিজাইন করা হয়েছে।</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -184,13 +216,45 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="py-10 px-4 lg:px-6 bg-gray-900 text-gray-400">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white font-bold">K</div>
-            <span className="font-display font-bold text-white">Keokradong</span>
-            <span className="text-sm ml-1 font-normal text-gray-500">কেওক্রাডং</span>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          
+          {/* Logo & Brand Identity */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+  <LogoIcon className="w-10 h-10 shrink-0" />
+  <div>
+    <div className="flex items-center gap-2">
+      <span className="font-display font-bold text-white text-base">Keokradong</span>
+      <span className="text-sm font-normal text-gray-500">কেওক্রাডং</span>
+    </div>
+    <p className="text-xs text-gray-300 mt-1 block">
+      Connecting 64 Districts & bringing goods to your doorstep
+    </p>
+  </div>
+</div>
+/</div>
+
+          {/* Contact & Support Info */}
+          <div className="text-xs text-center md:text-left space-y-1 text-gray-300">
+            <div>
+              <span className="font-bold text-white">Support:</span>{' '}
+              <a href="mailto:s.masud@keokradog.store" className="hover:text-primary-400 underline">
+                s.masud@keokradog.store
+              </a>
+            </div>
+            <div>
+              <span className="font-bold text-white">Complain:</span>{' '}
+              <a href="mailto:complain@keokradong.store" className="hover:text-primary-400 underline">
+                complain@keokradong.store
+              </a>
+            </div>
           </div>
-          <p className="text-sm">বাংলাদেশের সেরা সব খাঁটি ও ঐতিহ্যবাহী পণ্যের ট্রাস্ট-সেন্ট্রিক বিকেন্দ্রীকৃত লোকাল মার্কেটপ্লেস</p>
+
+          {/* Bengali Marketplace Description */}
+          <div className="text-sm text-center md:text-right text-gray-300 max-w-xs">
+            বাংলাদেশের সেরা সব খাঁটি ও ঐতিহ্যবাহী পণ্যের ট্রাস্ট-সেন্ট্রিক বিকেন্দ্রীকৃত লোকাল মার্কেটপ্লেস
+          </div>
+
         </div>
       </footer>
     </div>

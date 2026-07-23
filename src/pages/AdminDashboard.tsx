@@ -1,78 +1,244 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { supabase, Profile, District, Dispute, Order } from '../lib/supabase'
+import { supabase, Profile, District, Dispute, Order, Product } from '../lib/supabase'
 
 export default function AdminDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('tab') || 'users'
 
- const [searchParams,setSearchParams] = useSearchParams()
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={() => setSearchParams({ tab: 'users' })}
+          className={tab === 'users' ? 'btn-primary' : 'btn-outline'}
+        >
+          Users
+        </button>
+        <button
+          onClick={() => setSearchParams({ tab: 'orders' })}
+          className={tab === 'orders' ? 'btn-primary' : 'btn-outline'}
+        >
+          Orders
+        </button>
+        <button
+          onClick={() => setSearchParams({ tab: 'pending_products' })}
+          className={tab === 'pending_products' ? 'btn-primary' : 'btn-outline'}
+        >
+          Pending Products
+        </button>
+        <button
+          onClick={() => setSearchParams({ tab: 'disputes' })}
+          className={tab === 'disputes' ? 'btn-primary' : 'btn-outline'}
+        >
+          Disputes
+        </button>
+        <button
+          onClick={() => setSearchParams({ tab: 'analytics' })}
+          className={tab === 'analytics' ? 'btn-primary' : 'btn-outline'}
+        >
+          Analytics
+        </button>
+      </div>
 
- const tab = searchParams.get('tab') || 'users'
-
-
- return (
-  <div className="space-y-6">
-
-    <div className="flex gap-3">
-
-      <button
-      onClick={()=>setSearchParams({tab:'users'})}
-      className="btn-primary">
-        Users
-      </button>
-
-      <button
-      onClick={()=>setSearchParams({tab:'orders'})}
-      className="btn-primary">
-        Orders
-      </button>
-
-      <button
-      onClick={()=>setSearchParams({tab:'disputes'})}
-      className="btn-primary">
-        Disputes
-      </button>
-
-      <button
-      onClick={()=>setSearchParams({tab:'analytics'})}
-      className="btn-primary">
-        Analytics
-      </button>
-
+      {tab === 'orders' && <OrdersManagement />}
+      {tab === 'users' && <UsersView />}
+      {tab === 'pending_products' && <PendingProductsView />}
+      {tab === 'disputes' && <DisputesView />}
+      {tab === 'analytics' && <AnalyticsView />}
     </div>
+  )
+}
 
+function PendingProductsView() {
+  const [pendingProducts, setPendingProducts] = useState<(Product & { district?: District; seller?: Profile; assigned_agent?: Profile })[]>([])
+  const [agents, setAgents] = useState<Profile[]>([])
+  const [loading, setLoading] = useState(false)
+  
+  const [selectedProduct, setSelectedProduct] = useState<(Product & { district?: District; seller?: Profile }) | null>(null)
+  const [selectedAgentId, setSelectedAgentId] = useState('')
 
-    {
-      tab==='orders' && <OrdersManagement />
+  const loadPending = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [prodRes, agentRes] = await Promise.all([
+        supabase
+          .from('products')
+          .select('*, district:districts(*), seller:profiles!seller_id(*), assigned_agent:profiles!assigned_agent_id(*)')
+          .eq('verification_status', 'pending')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'agent')
+          .eq('status', 'active')
+      ])
+
+      setPendingProducts(prodRes.data || [])
+      setAgents(agentRes.data || [])
+    } catch (err) {
+      console.error('Error loading pending products:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadPending()
+  }, [loadPending])
+
+  async function handleDirectApprove(productId: string) {
+    const { error } = await supabase
+      .from('products')
+      .update({ 
+        verification_status: 'verified',
+        verified_at: new Date().toISOString()
+      })
+      .eq('id', productId)
+
+    if (error) {
+      alert(error.message)
+      return
     }
 
-    {
-      tab==='users' && <UsersView />
+    alert('Product successfully verified!')
+    loadPending()
+  }
+
+  async function handleAssignAgent(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedProduct || !selectedAgentId) return
+
+    const { error } = await supabase
+      .from('products')
+      .update({ 
+        assigned_agent_id: selectedAgentId
+      })
+      .eq('id', selectedProduct.id)
+
+    if (error) {
+      alert(error.message)
+      return
     }
 
-    {
-      tab==='disputes' && <DisputesView />
-    }
+    await supabase.from('notifications').insert({
+      user_id: selectedAgentId,
+      type: 'verification',
+      title: 'New Product Inspection Assigned',
+      body: `You have been assigned to inspect: "${selectedProduct.title}".`
+    })
 
-    {
-      tab==='analytics' && <AnalyticsView />
-    }
+    alert('Agent successfully assigned for verification!')
+    setSelectedProduct(null)
+    setSelectedAgentId('')
+    loadPending()
+  }
 
+  if (loading) return <div className="text-center py-12 text-gray-400">Loading pending products...</div>
 
-  </div>
- )
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="font-display font-bold text-2xl">Pending Products Verification</h1>
+          <p className="text-gray-500 text-sm mt-1">Review new listings, assign field agents, or approve products</p>
+        </div>
+        <button onClick={loadPending} className="btn-outline text-xs">🔄 Refresh</button>
+      </div>
 
+      {pendingProducts.length === 0 ? (
+        <div className="card p-12 text-center text-gray-400">No pending products waiting for verification.</div>
+      ) : (
+        <div className="space-y-4">
+          {pendingProducts.map(p => (
+            <div key={p.id} className="card p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <img 
+                  src={p.image_url || 'https://images.pexels.com/photos/4198023/pexels-photo-4198023.jpeg?auto=compress&cs=tinysrgb&w=600'} 
+                  alt={p.title} 
+                  className="w-16 h-16 rounded-xl object-cover border" 
+                />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="badge-gray text-[10px] uppercase">{p.category || 'General'}</span>
+                    <span className="text-xs text-gray-400">📍 {p.district?.name || 'District unassigned'}</span>
+                  </div>
+                  <h3 className="font-bold text-base">{p.title}</h3>
+                  <p className="text-xs text-gray-500 line-clamp-1">{p.description}</p>
+                  <div className="text-xs font-bold text-primary-600">৳{p.price} | Stock: {p.stock ?? 0}</div>
+                  <div className="text-[11px] text-gray-400">
+                    Seller: <strong className="text-gray-600">{p.seller?.full_name || 'Unknown'}</strong> | 
+                    Assigned Agent: <strong className="text-indigo-600">{p.assigned_agent?.full_name || 'None'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 w-full md:w-auto justify-end shrink-0">
+                <button 
+                  onClick={() => setSelectedProduct(p)}
+                  className="btn-outline text-xs py-1.5 px-3"
+                >
+                  Assign Agent
+                </button>
+                <button 
+                  onClick={() => handleDirectApprove(p.id)}
+                  className="btn-primary text-xs py-1.5 px-3"
+                >
+                  Approve Directly
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Agent Assignment Modal */}
+      {selectedProduct && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={() => setSelectedProduct(null)}>
+          <div className="card max-w-md w-full p-6 space-y-4 bg-white" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="font-bold text-lg">Assign Inspection Agent</h3>
+              <button onClick={() => setSelectedProduct(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="text-xs text-gray-500">
+              Product: <strong className="text-gray-800">{selectedProduct.title}</strong>
+            </div>
+
+            <form onSubmit={handleAssignAgent} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 block mb-1">Select Active Agent:</label>
+                <select 
+                  className="input w-full text-sm"
+                  value={selectedAgentId}
+                  onChange={e => setSelectedAgentId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Choose agent --</option>
+                  {agents.map(a => (
+                    <option key={a.id} value={a.id}>{a.full_name} ({a.email})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setSelectedProduct(null)} className="btn-outline flex-1 text-xs py-2">Cancel</button>
+                <button type="submit" className="btn-primary flex-1 text-xs py-2">Confirm Assignment</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function OrdersManagement(){
-
 const [orders,setOrders]=useState<any[]>([])
 const [agents,setAgents]=useState<Profile[]>([])
 const [status,setStatus]=useState('pending')
 
-
 async function load(){
-
 const {data:ordersData}=await supabase
 .from('orders')
 .select(`
@@ -87,10 +253,7 @@ items:order_items(
 .eq('status',status)
 .order('created_at',{ascending:false})
 
-
 setOrders(ordersData || [])
-
-
 
 const {data:agentData}=await supabase
 .from('profiles')
@@ -98,234 +261,64 @@ const {data:agentData}=await supabase
 .eq('role','agent')
 .eq('status','active')
 
-
 setAgents(agentData || [])
-
 }
-
 
 useEffect(()=>{
 load()
 },[status])
 
-
-
-async function assignAgent(
-orderId:string,
-agentId:string
-){
-
-
-await supabase
-.from('orders')
-.update({
- assigned_agent_id:agentId,
- assigned_at:new Date().toISOString(),
- status:'assigned'
-})
-.eq('id',orderId)
-
-
-
-await supabase
-.from('notifications')
-.insert({
-
-user_id:agentId,
-type:'order',
-title:'New Delivery Assigned',
-body:'You have received a new delivery order'
-
-})
-
-
-load()
-
-}
-
-
-
-
 return (
-
 <div className="space-y-6">
-
-
-<h1 className="font-display font-bold text-2xl">
-Order Management
-</h1>
-
-
-<div className="flex gap-2">
-
-{
-[
-'pending',
-'assigned',
-'confirmed',
-'shipped',
-'delivered'
-].map(s=>(
-
+<h1 className="font-display font-bold text-2xl">Order Management</h1>
+<div className="flex gap-2 flex-wrap">
+{['pending','assigned','confirmed','shipped','delivered'].map(s=>(
 <button
-
 key={s}
-
 onClick={()=>setStatus(s)}
-
-className={`
-px-4 py-2 rounded-lg
-${status===s?
-'bg-primary-600 text-white':
-'bg-gray-100'
-}
-`}
+className={`px-4 py-2 rounded-lg text-sm capitalize ${status===s?'bg-primary-600 text-white':'bg-gray-100 text-gray-600'}`}
 >
-
 {s}
-
 </button>
-
-))
-}
-
+))}
 </div>
-
-
 
 <div className="space-y-4">
-
-
-{
-orders.map(order=>(
-
-<div
-key={order.id}
-className="card p-5 space-y-4"
->
-
-
+{orders.map(order=>(
+<div key={order.id} className="card p-5 space-y-4">
 <div className="flex justify-between">
-
-
 <div>
-
-<h3 className="font-bold">
-
-Order #{order.id.slice(0,8)}
-
-</h3>
-
-
-<p className="text-sm text-gray-500">
-
-Buyer:
-{order.buyer?.full_name}
-
-</p>
-
-
+<h3 className="font-bold">Order #{order.id.slice(0,8)}</h3>
+<p className="text-sm text-gray-500">Buyer: {order.buyer?.full_name}</p>
 </div>
-
-
-
-<div className="font-bold text-primary-600">
-
-৳{order.total}
-
+<div className="font-bold text-primary-600">৳{order.total}</div>
 </div>
-
-
-</div>
-
-
-
 <div>
-
-<h4 className="font-semibold">
-Products
-</h4>
-
-
-{
-order.items.map((item:any)=>(
-
-<div
-key={item.id}
-className="text-sm"
->
-
-{item.product.title}
-
--
-{item.district?.name}
-
-
+<h4 className="font-semibold text-xs text-gray-400 uppercase">Products</h4>
+{order.items.map((item:any)=>(
+<div key={item.id} className="text-sm">
+{item.product?.title} - {item.district?.name}
 </div>
-
-))
-
-}
-
+))}
 </div>
-
-
-
-{
-status === 'pending' && (
-
-<AssignAgentBox
-  orderId={order.id}
-  agents={agents}
-  onAssigned={load}
-/>
-
+{status === 'pending' && (
+<AssignAgentBox orderId={order.id} agents={agents} onAssigned={load} />
+)}
+</div>
+))}
+</div>
+</div>
 )
 }
 
-
-
-</div>
-
-
-))
-
-}
-
-
-</div>
-
-
-</div>
-
-)
-
-
-}
-
-
-
-function AssignAgentBox({
-  orderId,
-  agents,
-  onAssigned
-}:{
-  orderId:string
-  agents:Profile[]
-  onAssigned:()=>void
-}){
-
+function AssignAgentBox({orderId,agents,onAssigned}:{orderId:string;agents:Profile[];onAssigned:()=>void}){
 const [selectedAgent,setSelectedAgent]=useState('')
 
-
 async function assign(){
-
 if(!selectedAgent){
   alert('Please select an agent')
   return
 }
-
-
 const {error}=await supabase
 .from('orders')
 .update({
@@ -335,81 +328,33 @@ const {error}=await supabase
 })
 .eq('id',orderId)
 
-
 if(error){
   alert(error.message)
   return
 }
 
-
-// notify agent
-
-await supabase
-.from('notifications')
-.insert({
+await supabase.from('notifications').insert({
  user_id:selectedAgent,
  type:'order',
  title:'New Delivery Assigned',
  body:'A new order has been assigned to you.'
 })
 
-
 alert('Agent assigned successfully')
-
 onAssigned()
-
 }
-
-
 
 return (
-
-<div className="flex gap-3 items-center">
-
-<select
-className="input flex-1"
-value={selectedAgent}
-onChange={(e)=>setSelectedAgent(e.target.value)}
->
-
-<option value="">
-Select delivery agent
-</option>
-
-
-{
-agents.map(agent=>(
-
-<option
-key={agent.id}
-value={agent.id}
->
-
-{agent.full_name}
-
-</option>
-
-))
-
-}
-
-
+<div className="flex gap-3 items-center pt-2 border-t">
+<select className="input flex-1 text-sm" value={selectedAgent} onChange={(e)=>setSelectedAgent(e.target.value)}>
+<option value="">Select delivery agent</option>
+{agents.map(agent=>(
+<option key={agent.id} value={agent.id}>{agent.full_name}</option>
+))}
 </select>
-
-
-<button
-onClick={assign}
-className="btn-primary"
-disabled={!selectedAgent}
->
-Assign Agent
-</button>
-
-
+<button onClick={assign} className="btn-primary text-xs py-2 px-4" disabled={!selectedAgent}>Assign Agent</button>
 </div>
-
 )
-
 }
 
 function UsersView() {
@@ -438,7 +383,6 @@ function UsersView() {
   })
 
  async function updateStatus(userId: string, status: 'active' | 'pending' | 'suspended') {
-  // Get the target user's role
   const { data: targetUser, error: fetchError } = await supabase
     .from('profiles')
     .select('role')
@@ -450,7 +394,6 @@ function UsersView() {
     return
   }
 
-  // Admins may only change seller/agent accounts
   if (!['seller', 'agent'].includes(targetUser.role)) {
     alert('You are only allowed to change the status of sellers and agents.')
     return
@@ -469,12 +412,8 @@ function UsersView() {
   await supabase.from('notifications').insert({
     user_id: userId,
     type: 'account',
-    title: status === 'active'
-      ? 'Account Approved'
-      : 'Account Suspended',
-    body: status === 'active'
-      ? 'Your account has been approved by an administrator.'
-      : 'Your account has been suspended. Please contact support.',
+    title: status === 'active' ? 'Account Approved' : 'Account Suspended',
+    body: status === 'active' ? 'Your account has been approved by an administrator.' : 'Your account has been suspended.',
   })
 
   load()
@@ -543,7 +482,6 @@ function UsersView() {
 }
 
 function DisputesView() {
-  const { profile: admin } = useAuth()
   const [disputes, setDisputes] = useState<(Dispute & { buyer: Profile; order: Order })[]>([])
 
   const load = useCallback(async () => {
@@ -585,13 +523,13 @@ function DisputesView() {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="font-semibold">{d.subject}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">By {d.buyer?.full_name} · Order #{d.order_id.slice(0, 8)} · {new Date(d.created_at).toLocaleDateString()}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">By {d.buyer?.full_name} · Order #{d.order_id.slice(0, 8)}</div>
                 </div>
                 <span className={STATUS_COLORS[d.status]}>{d.status}</span>
               </div>
               <p className="text-sm text-gray-600 mb-3">{d.description}</p>
               {d.resolution && <div className="text-sm p-3 rounded-xl bg-gray-50 mb-3"><span className="font-medium">Resolution:</span> {d.resolution}</div>}
-              {d.status === 'open' || d.status === 'investigating' ? (
+              {['open', 'investigating'].includes(d.status) && (
                 <div className="flex gap-2">
                   <button onClick={() => updateStatus(d.id, 'investigating', d.resolution || 'Under investigation')} className="btn-outline text-xs py-1.5">Mark Investigating</button>
                   <button onClick={() => {
@@ -600,7 +538,7 @@ function DisputesView() {
                   }} className="btn-primary text-xs py-1.5">Resolve</button>
                   <button onClick={() => updateStatus(d.id, 'closed', d.resolution || 'Case closed')} className="btn-ghost text-xs py-1.5">Close</button>
                 </div>
-              ) : null}
+              )}
             </div>
           ))}
         </div>
@@ -630,7 +568,7 @@ function AnalyticsView() {
 
       setStats({
         totalOrders: orderList.length,
-        totalRevenue: orderList.reduce((s: number, o: any) => s + o.total, 0),
+        totalRevenue: orderList.reduce((s: number, o: any) => s + (o.total || 0), 0),
         totalUsers: userList.length,
         totalProducts: productList.length,
         verifiedProducts: productList.filter((p: any) => p.verification_status === 'verified').length,

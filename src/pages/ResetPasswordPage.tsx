@@ -32,29 +32,41 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
+    let isMounted = true
 
     async function establishRecoverySession() {
-      const isRecovery = hasRecoveryParams()
+      const queryParams = new URLSearchParams(window.location.search)
+      const code = queryParams.get('code')
+      const type = queryParams.get('type')
+      const hash = window.location.hash
 
-      if (!isRecovery) {
-        if (!cancelled) {
+      // 1. Handle PKCE Code Flow
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+        if (!isMounted) return
+
+        if (exchangeError) {
+          console.error('Code exchange failed:', exchangeError.message)
           setLinkValid(false)
           setCheckingLink(false)
+          clearRecoveryParamsFromUrl()
+          return
         }
+
+        clearRecoveryParamsFromUrl()
+        setLinkValid(true)
+        setCheckingLink(false)
         return
       }
 
-      const code = new URLSearchParams(window.location.search).get('code')
+      // 2. Handle Hash / Recovery Type Flow
+      if (hash.includes('type=recovery') || type === 'recovery' || hash.includes('access_token=')) {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-      if (code) {
-        const { error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(code)
+        if (!isMounted) return
 
-        if (cancelled) return
-
-        if (exchangeError) {
-          console.error('Recovery code exchange failed:', exchangeError.message)
+        if (sessionError || !session) {
           setLinkValid(false)
           setCheckingLink(false)
           return
@@ -66,57 +78,23 @@ export default function ResetPasswordPage() {
         return
       }
 
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, session) => {
-        if (
-          session &&
-          (event === 'PASSWORD_RECOVERY' ||
-            event === 'SIGNED_IN' ||
-            event === 'INITIAL_SESSION')
-        ) {
-          if (!cancelled) {
-            setLinkValid(true)
-            setCheckingLink(false)
-            clearRecoveryParamsFromUrl()
-          }
-        }
-      })
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (cancelled) {
-        subscription.unsubscribe()
-        return
-      }
-
-      if (sessionError) {
-        console.error('Recovery session check failed:', sessionError.message)
-      }
-
+      // 3. Check if an active recovery session already exists
+      const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         setLinkValid(true)
         setCheckingLink(false)
-        clearRecoveryParamsFromUrl()
-        subscription.unsubscribe()
         return
       }
 
-      window.setTimeout(() => {
-        if (!cancelled) {
-          setCheckingLink(false)
-        }
-        subscription.unsubscribe()
-      }, 8000)
+      if (!isMounted) return
+      setLinkValid(false)
+      setCheckingLink(false)
     }
 
     establishRecoverySession()
 
     return () => {
-      cancelled = true
+      isMounted = false
     }
   }, [])
 
@@ -137,16 +115,6 @@ export default function ResetPasswordPage() {
     setFormLoading(true)
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session) {
-        throw new Error(
-          'Your reset session expired. Please request a new password reset link.'
-        )
-      }
-
       const { error: updateError } = await updatePassword(password)
       if (updateError) throw new Error(updateError)
 
@@ -206,7 +174,7 @@ export default function ResetPasswordPage() {
               </p>
               <Link
                 to="/auth"
-                className="inline-block w-full rounded-xl bg-primary-600 py-2.5 font-semibold text-white transition-colors hover:bg-primary-700"
+                className="inline-block w-full rounded-xl bg-primary-600 py-2.5 font-semibold text-white transition-colors hover:bg-primary-700 text-center"
               >
                 Back to Sign In
               </Link>

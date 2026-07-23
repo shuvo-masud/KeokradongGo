@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+
 interface District {
   id: string
   name: string
@@ -19,8 +20,6 @@ export default function AuthPage() {
     user,
     loading,
   } = useAuth()
-  
-
 
   const [districts, setDistricts] = useState<District[]>([])
   const [districtId, setDistrictId] = useState('')
@@ -37,37 +36,25 @@ export default function AuthPage() {
   const [role, setRole] = useState<'consumer' | 'seller' | 'agent'>('consumer')
   const [shopName, setShopName] = useState('')
   const [nidNumber, setNidNumber] = useState('')
-
+  const [sellerProductsDesc, setSellerProductsDesc] = useState('')
 
   useEffect(() => {
+    async function fetchDistricts() {
+      const { data, error } = await supabase
+        .from('districts')
+        .select('id, name, division')
+        .order('name', { ascending: true })
 
-  async function fetchDistricts() {
+      if (error) {
+        console.error('District loading failed:', error.message)
+        return
+      }
 
-    const {
-      data,
-      error,
-    } = await supabase
-      .from('districts')
-      .select('id, name, division')
-      .order('name', { ascending: true });
-
-
-    if (error) {
-      console.error(
-        'District loading failed:',
-        error.message
-      )
-      return
+      setDistricts(data || [])
     }
 
-
-    setDistricts(data || [])
-  }
-
-
-  fetchDistricts()
-
-}, [])
+    fetchDistricts()
+  }, [])
 
   useEffect(() => {
     if (!loading && user && profile) {
@@ -75,87 +62,80 @@ export default function AuthPage() {
     }
   }, [loading, user, profile, navigate])
 
-async function handleSubmit(e: React.FormEvent) {
-  e.preventDefault()
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
 
-  setError(null)
-  setFormLoading(true)
+    setError(null)
+    setFormLoading(true)
 
-  try {
-    if (mode === 'login') {
-      const { error } = await signIn(email, password)
+    try {
+      if (mode === 'login') {
+        const { error } = await signIn(email, password)
+        if (error) throw new Error(error)
+      } else if (mode === 'forgot') {
+        const { error } = await resetPasswordForEmail(
+          email.trim(),
+          `${window.location.origin}/reset-password`
+        )
+        if (error) throw new Error(error)
+        setForgotSent(true)
+      } else {
+        const { error } = await signUp({
+          email,
+          password,
+          fullName: name.trim(),
+          phone: phone.trim(),
+          role,
+          districtId: districtId || undefined,
+          businessName: role === 'seller' ? shopName.trim() : undefined,
+          nationalId: role !== 'consumer' ? nidNumber.trim() : undefined,
+          sellerProductsDesc:
+            role === 'seller' ? sellerProductsDesc.trim() : undefined,
+        })
 
-      if (error) throw new Error(error)
-    } else if (mode === 'forgot') {
-      const { error } = await resetPasswordForEmail(email.trim())
+        if (error) throw new Error(error)
 
-      if (error) throw new Error(error)
+        setName('')
+        setPhone('')
+        setEmail('')
+        setPassword('')
+        setRole('consumer')
+        setShopName('')
+        setNidNumber('')
+        setSellerProductsDesc('')
+        setDistrictId('')
 
-      setForgotSent(true)
-    } else {
-      const { error } = await signUp({
-        email,
-        password,
-        fullName: name.trim(),
-        phone: phone.trim(),
-        role,
-        districtId: districtId || undefined,
-        businessName:
-          role === 'seller'
-            ? shopName.trim()
-            : undefined,
-        nationalId:
-          role !== 'consumer'
-            ? nidNumber.trim()
-            : undefined,
-      })
+        setMode('login')
 
-      if (error) throw new Error(error)
-
-      setName('')
-      setPhone('')
-      setEmail('')
-      setPassword('')
-      setRole('consumer')
-      setShopName('')
-      setNidNumber('')
-      setDistrictId('')
-
-      setMode('login')
-
-      alert('Confirm your Email & you are ready to sign in!')
+        alert('Confirm your Email & you are ready to sign in!')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed')
+    } finally {
+      setFormLoading(false)
     }
-  } catch (err: any) {
-    setError(err.message || 'Authentication failed')
-  } finally {
-    setFormLoading(false)
   }
-}
 
-function switchMode(nextMode: 'login' | 'register' | 'forgot') {
-  setMode(nextMode)
-  setError(null)
-  setForgotSent(false)
-}
+  function switchMode(nextMode: 'login' | 'register' | 'forgot') {
+    setMode(nextMode)
+    setError(null)
+    setForgotSent(false)
+  }
 
   const inputClass =
     'w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all'
 
-  const labelClass =
-    'block text-sm font-medium text-gray-700 mb-1'
+  const labelClass = 'block text-sm font-medium text-gray-700 mb-1'
 
   return (
     <div className="min-h-screen flex bg-white">
       <div className="hidden lg:flex w-1/2 bg-primary-900 p-12 flex-col justify-between text-white">
-        <div className="text-2xl font-bold tracking-tight">
-          Keokradong
-        </div>
+        <div className="text-2xl font-bold tracking-tight">Keokradong</div>
 
         <div>
           <h1 className="text-4xl font-extrabold mb-6">
             Authentic local goods, verified by agents.
           </h1>
-
           <p className="text-primary-200 text-lg">
             Every product is physically inspected by local district agents before reaching you.
           </p>
@@ -166,7 +146,6 @@ function switchMode(nextMode: 'login' | 'register' | 'forgot') {
 
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
-
           <h2 className="text-2xl font-bold mb-6">
             {mode === 'login'
               ? 'Welcome Back'
@@ -190,188 +169,191 @@ function switchMode(nextMode: 'login' | 'register' | 'forgot') {
               </button>
             </div>
           ) : (
-          <>
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-4"
-          >
-            {mode === 'register' && (
-              <>
-                <div>
-                  <label className={labelClass}>Full Name</label>
-                  <input
-                    className={inputClass}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
+            <>
+              {error && (
+                <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  {error}
                 </div>
+              )}
 
-                <div>
-                  <label className={labelClass}>Phone Number</label>
-                  <input
-                    type="tel"
-                    className={inputClass}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {mode === 'register' && (
+                  <>
+                    <div>
+                      <label className={labelClass}>Full Name</label>
+                      <input
+                        className={inputClass}
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                      />
+                    </div>
 
-                <div>
-                  <label className={labelClass}>Role</label>
+                    <div>
+                      <label className={labelClass}>Phone Number</label>
+                      <input
+                        type="tel"
+                        className={inputClass}
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                      />
+                    </div>
 
-                  <div className="flex gap-2">
-                    {(['consumer', 'seller', 'agent'] as const).map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setRole(r)}
-                        className={`flex-1 rounded-lg border py-2 text-xs font-semibold ${
-                          role === r
-                            ? 'border-primary-600 bg-primary-600 text-white'
-                            : 'border-gray-200 bg-gray-50'
-                        }`}
+                    <div>
+                      <label className={labelClass}>Role</label>
+                      <div className="flex gap-2">
+                        {(['consumer', 'seller', 'agent'] as const).map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setRole(r)}
+                            className={`flex-1 rounded-lg border py-2 text-xs font-semibold ${
+                              role === r
+                                ? 'border-primary-600 bg-primary-600 text-white'
+                                : 'border-gray-200 bg-gray-50'
+                            }`}
+                          >
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {role === 'seller' && (
+                      <>
+                        <div>
+                          <label className={labelClass}>Shop Name</label>
+                          <input
+                            className={inputClass}
+                            value={shopName}
+                            onChange={(e) => setShopName(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>
+                            সম্ভাব্য পণ্যসমূহ বা পণ্যের বিবরণ (Possible Products / Description)
+                          </label>
+                          <textarea
+                            className={inputClass}
+                            rows={3}
+                            placeholder="আপনার সম্ভাব্য পণ্যগুলো এখানে বাংলায় বা ইংরেজিতে লিখুন..."
+                            value={sellerProductsDesc}
+                            onChange={(e) => setSellerProductsDesc(e.target.value)}
+                            required
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {role !== 'consumer' && (
+                      <div>
+                        <label className={labelClass}>NID Number</label>
+                        <input
+                          className={inputClass}
+                          value={nidNumber}
+                          onChange={(e) => setNidNumber(e.target.value)}
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className={labelClass}>District</label>
+                      <select
+                        className={inputClass}
+                        value={districtId}
+                        onChange={(e) => setDistrictId(e.target.value)}
+                        required
                       >
-                        {r.charAt(0).toUpperCase() + r.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {role === 'seller' && (
-                  <div>
-                    <label className={labelClass}>Shop Name</label>
-                    <input
-                      className={inputClass}
-                      value={shopName}
-                      onChange={(e) => setShopName(e.target.value)}
-                      required
-                    />
-                  </div>
-                )}
-
-                {role !== 'consumer' && (
-                  <div>
-                    <label className={labelClass}>NID Number</label>
-                    <input
-                      className={inputClass}
-                      value={nidNumber}
-                      onChange={(e) => setNidNumber(e.target.value)}
-                      required
-                    />
-                  </div>
+                        <option value="">Select District</option>
+                        {districts.map((district) => (
+                          <option key={district.id} value={district.id}>
+                            {district.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
                 )}
 
                 <div>
-                  <label className={labelClass}>District</label>
-
-                  <select
-                     className={inputClass}
-                     value={districtId}
-                     onChange={(e) => setDistrictId(e.target.value)}
+                  <label className={labelClass}>Email</label>
+                  <input
+                    type="email"
+                    className={inputClass}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
-                             >
-                  <option value="">
-                  Select District
-                  </option>
-
-                 {districts.map((district) => (
-                 <option
-                 key={district.id}
-                value={district.id}
-                   >
-                      {district.name}
-                   </option>
-                   ))}
-
-              </select>
+                  />
                 </div>
-              </>
-            )}
 
-            <div>
-              <label className={labelClass}>Email</label>
-              <input
-                type="email"
-                className={inputClass}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+                {mode !== 'forgot' && (
+                  <div>
+                    <label className={labelClass}>Password</label>
+                    <input
+                      type="password"
+                      className={inputClass}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                )}
 
-            {mode !== 'forgot' && (
-            <div>
-              <label className={labelClass}>Password</label>
-              <input
-                type="password"
-                className={inputClass}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            )}
+                {mode === 'login' && (
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => switchMode('forgot')}
+                      className="text-sm font-medium text-primary-600 hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
 
-            {mode === 'login' && (
-              <div className="text-right">
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="w-full rounded-xl bg-primary-600 py-2.5 font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {formLoading
+                    ? 'Processing...'
+                    : mode === 'login'
+                    ? 'Sign In'
+                    : mode === 'forgot'
+                    ? 'Send Reset Link'
+                    : 'Create Account'}
+                </button>
+              </form>
+
+              <p className="mt-6 text-center text-sm text-gray-600">
+                {mode === 'login'
+                  ? "Don't have an account? "
+                  : mode === 'forgot'
+                  ? 'Remember your password? '
+                  : 'Already have an account? '}
+
                 <button
                   type="button"
-                  onClick={() => switchMode('forgot')}
-                  className="text-sm font-medium text-primary-600 hover:underline"
+                  onClick={() =>
+                    switchMode(mode === 'login' ? 'register' : 'login')
+                  }
+                  className="font-bold text-primary-600 hover:underline"
                 >
-                  Forgot password?
+                  {mode === 'login'
+                    ? 'Sign Up'
+                    : mode === 'forgot'
+                    ? 'Sign In'
+                    : 'Sign In'}
                 </button>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={formLoading}
-              className="w-full rounded-xl bg-primary-600 py-2.5 font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-            >
-              {formLoading
-                ? 'Processing...'
-                : mode === 'login'
-                ? 'Sign In'
-                : mode === 'forgot'
-                ? 'Send Reset Link'
-                : 'Create Account'}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-gray-600">
-            {mode === 'login'
-              ? "Don't have an account? "
-              : mode === 'forgot'
-              ? 'Remember your password? '
-              : 'Already have an account? '}
-
-            <button
-              type="button"
-              onClick={() =>
-                switchMode(mode === 'login' ? 'register' : 'login')
-              }
-              className="font-bold text-primary-600 hover:underline"
-            >
-              {mode === 'login'
-                ? 'Sign Up'
-                : mode === 'forgot'
-                ? 'Sign In'
-                : 'Sign In'}
-            </button>
-          </p>
-          </>
+              </p>
+            </>
           )}
-
         </div>
       </div>
     </div>

@@ -6,10 +6,10 @@ import SuperAdminDashboard from './SuperAdminDashboard'
 import AdminDashboard from './AdminDashboard'
 import AgentDashboard from './AgentDashboard'
 import SellerDashboard from './SellerDashboard'
+
 const CATEGORIES = ['All', 'Fruits', 'Textiles', 'Fish', 'Tea', 'Handicraft', 'Spices', 'Other']
 const CATEGORY_EMOJIS: Record<string, string> = {
   All: '✨', Fruits: '🥭', Textiles: '🥻', Fish: '🐟', Tea: '🍵', Handicraft: '🎨', Spices: '🌶️', Other: '📦'
-  
 }
 
 const PRODUCT_IMAGES: Record<string, string> = {
@@ -22,23 +22,24 @@ const PRODUCT_IMAGES: Record<string, string> = {
   Other: 'https://images.pexels.com/photos/4198023/pexels-photo-4198023.jpeg?auto=compress&cs=tinysrgb&w=600',
 }
 
-
 type ExtendedProduct = Product & { district: District; seller: Profile }
 type ExtendedOrder = Order & { items: (OrderItem & { product: Product })[] }
+type ExtendedChat = Chat & { sender?: Profile; receiver?: Profile; product?: Product }
 interface CartItem { product: ExtendedProduct; quantity: number }
 
 export default function ConsumerDashboard() {
-  const { profile } = useAuth()
+  const authContext = useAuth()
+  const profile = authContext?.profile
+
   const [showAdmin, setShowAdmin] = useState(false)
   const [showSuperAdmin, setShowSuperAdmin] = useState(false)
   const [showAgent, setShowAgent] = useState(false)
+  const [showSeller, setShowSeller] = useState(false)
 
-
-  const authContext = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = searchParams?.get('tab') || 'browse'
 
-  if (!authContext || !authContext.profile) {
+  if (!authContext || !profile) {
     return (
       <div className="min-h-[60vh] w-full flex flex-col items-center justify-center p-6">
         <div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
@@ -46,95 +47,63 @@ export default function ConsumerDashboard() {
       </div>
     )
   }
+
   if (showSuperAdmin) {
-  return (
-    <>
-      <div className="mb-6 flex justify-end">
-        <button
-          className="btn-outline"
-          onClick={() => setShowSuperAdmin(false)}
-        >
-          ← Consumer Dashboard
-        </button>
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <button className="btn-outline" onClick={() => setShowSuperAdmin(false)}>
+            ← Consumer Dashboard
+          </button>
+        </div>
+        <SuperAdminDashboard />
       </div>
-
-      <SuperAdminDashboard />
-    </>
-  )
-}
+    )
+  }
  
- if (showAdmin) {
-  return (
-    <>
-      <div className="mb-6 flex justify-end">
-        <button
-          className="btn-outline"
-          onClick={() => setShowAdmin(false)}
-        >
-          ← Consumer Dashboard
-        </button>
+  if (showAdmin) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <button className="btn-outline" onClick={() => setShowAdmin(false)}>
+            ← Consumer Dashboard
+          </button>
+        </div>
+        <AdminDashboard />
       </div>
+    )
+  }
 
-      <AdminDashboard />
-    </>
-  )
-}
-if (showAgent) {
-  return (
-    <>
-      <div className="mb-6 flex justify-end">
-        <button
-          className="btn-outline"
-          onClick={() => setShowAgent(false)}
-        >
-          ← Consumer Dashboard
-        </button>
+  if (showAgent) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <button className="btn-outline" onClick={() => setShowAgent(false)}>
+            ← Consumer Dashboard
+          </button>
+        </div>
+        <AgentDashboard />
       </div>
+    )
+  }
 
-      <AgentDashboard />
-    </>
-  )
-}
+  if (showSeller) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <button className="btn-outline" onClick={() => setShowSeller(false)}>
+            ← Consumer Dashboard
+          </button>
+        </div>
+        <SellerDashboard />
+      </div>
+    )
+  }
 
   return (
-
-    
-    
     <div className="space-y-8 pb-12">
-      {/* Top Tab Navigation */}
-      <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div className="flex gap-2 sm:gap-4 overflow-x-auto">
-          {profile?.role === 'admin' && (
-          <div className="flex justify-end mb-6">
-            <button
-              className="btn-primary"
-                 onClick={() => setShowAdmin(true)}
-                       >
-                   Admin Dashboard
-            </button>
-         </div>
-          )}
-           {profile?.role === 'super_admin' && (
-          <div className="flex justify-end mb-6">
-            <button
-              className="btn-primary"
-                 onClick={() => setShowSuperAdmin(true)}
-                       >
-                   Supper_Admin Dashboard
-            </button>
-         </div>
-          )}
-          {profile?.role === 'agent' && (
-          <div className="flex justify-end mb-6">
-            <button
-              className="btn-primary"
-                 onClick={() => setShowAgent(true)}
-                       >
-                   Agent Dashboard
-            </button>
-         </div>
-          )}
-
           <button
             onClick={() => setSearchParams({ tab: 'browse' })}
             className={`px-4 py-2 rounded-xl font-medium text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
@@ -159,6 +128,29 @@ if (showAgent) {
           >
             💬 সরাসরি চ্যাট (Support Chats)
           </button>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {profile.role === 'admin' && (
+            <button className="btn-primary" onClick={() => setShowAdmin(true)}>
+              Admin Dashboard
+            </button>
+          )}
+          {profile.role === 'super_admin' && (
+            <button className="btn-primary" onClick={() => setShowSuperAdmin(true)}>
+              Super Admin Dashboard
+            </button>
+          )}
+          {profile.role === 'agent' && (
+            <button className="btn-primary" onClick={() => setShowAgent(true)}>
+              Agent Dashboard
+            </button>
+          )}
+          {profile.role === 'seller' && (
+            <button className="btn-primary" onClick={() => setShowSeller(true)}>
+              Seller Dashboard
+            </button>
+          )}
         </div>
       </div>
 
@@ -210,7 +202,6 @@ function BrowseView() {
     return () => { isMounted = false }
   }, [])
 
-  // Smart Memoized Filtering (Matches Product Title OR District Name)
   const filtered = useMemo(() => {
     return products.filter(p => {
       if (category !== 'All' && p.category !== category) return false
@@ -264,16 +255,13 @@ function BrowseView() {
       if (!order) return
 
       const items = cart.map(c => ({
-  order_id: order.id,
-  product_id: c.product.id,
-  seller_id: c.product.seller_id,
-
-  // seller/product district
-  district_id: c.product.district_id,
-
-  quantity: c.quantity,
-  unit_price: c.product.price,
-}))
+        order_id: order.id,
+        product_id: c.product.id,
+        seller_id: c.product.seller_id,
+        district_id: c.product.district_id,
+        quantity: c.quantity,
+        unit_price: c.product.price,
+      }))
       await supabase.from('order_items').insert(items)
 
       const sellerIds = [...new Set(cart.map(c => c.product.seller_id))]
@@ -296,7 +284,6 @@ function BrowseView() {
 
   return (
     <div className="space-y-8">
-      {/* Hero Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary-800 to-primary-600 text-white p-6 sm:p-8 lg:p-10 shadow-lg">
         <div className="absolute -right-10 -top-10 w-60 h-60 bg-white/10 rounded-full blur-2xl" />
         <div className="relative z-10 max-w-2xl space-y-3">
@@ -324,9 +311,7 @@ function BrowseView() {
         </button>
       </div>
 
-      {/* Smart Search & Filter Control Panel */}
       <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-        {/* Main Search Input */}
         <div className="relative">
           <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 text-lg">🔍</span>
           <input 
@@ -346,7 +331,6 @@ function BrowseView() {
           )}
         </div>
 
-        {/* District Filter Pills */}
         <div className="space-y-1.5">
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">জেলা অনুযায়ী ফিল্টার (Filter by District):</div>
           <div className="flex flex-wrap gap-2 pt-1">
@@ -376,7 +360,6 @@ function BrowseView() {
           </div>
         </div>
 
-        {/* Category Filter Pills */}
         <div className="space-y-1.5 pt-2 border-t border-gray-100">
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">ক্যাটাগরি (Category):</div>
           <div className="flex flex-wrap gap-2 pt-1">
@@ -398,12 +381,11 @@ function BrowseView() {
         </div>
       </div>
 
-      {/* Product Grid Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display font-bold text-xl text-gray-900">
             {districtFilter === 'All' ? 'সকল পণ্য' : `${districtFilter} জেলার পণ্য`}
-            <span className="ml-2 text-sm font-normal text-gray-500">({filtered.length}টি পণ্য পাওয়া গেছে)</span>
+            <span className="ml-2 text-sm font-normal text-gray-500">({filtered.length}টি পণ্য পাওয়া গেছে)</span>
           </h2>
           {(category !== 'All' || districtFilter !== 'All' || searchQuery) && (
             <button 
@@ -429,9 +411,9 @@ function BrowseView() {
         ) : filtered.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center space-y-3">
             <div className="text-5xl">🔍</div>
-            <h3 className="font-bold text-lg text-gray-800">কোনো পণ্য খুঁজে পাওয়া যায়নি!</h3>
+            <h3 className="font-bold text-lg text-gray-800">কোনো পণ্য খুঁজে পাওয়া যায়নি!</h3>
             <p className="text-sm text-gray-500 max-w-md mx-auto">
-              আপনার ফিল্টার বা সার্চ কিওয়ার্ড অনুযায়ী এই মুহূর্তে কোনো পণ্য লিস্টিংয়ে নেই। অন্য কোনো জেলা বা ক্যাটাগরি সিলেক্ট করে চেষ্টা করুন।
+              আপনার ফিল্টার বা সার্চ কিওয়ার্ড অনুযায়ী এই মুহূর্তে কোনো পণ্য লিস্টিংয়ে নেই। অন্য কোনো জেলা বা ক্যাটাগরি সিলেক্ট করে চেষ্টা করুন।
             </p>
             <button 
               onClick={() => { setCategory('All'); setDistrictFilter('All'); setSearchQuery(''); }}
@@ -448,15 +430,12 @@ function BrowseView() {
                 className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-xl hover:border-primary-200 transition-all duration-300 flex flex-col group cursor-pointer"
                 onClick={() => setSelectedProduct(p)}
               >
-                {/* Image Container */}
                 <div className="h-52 bg-gray-100 overflow-hidden relative">
                   <img 
                     src={p.image_url || PRODUCT_IMAGES[p.category] || PRODUCT_IMAGES.Other} 
                     alt={p.title} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                   />
-                  
-                  {/* Status & District Overlay Badges */}
                   <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
                     <span className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-white font-medium text-xs flex items-center gap-1">
                       📍 {p.district?.name || 'বাংলাদেশ'}
@@ -467,8 +446,6 @@ function BrowseView() {
                       </span>
                     )}
                   </div>
-
-                  {/* Stock Warning */}
                   {p.stock === 0 && (
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center">
                       <span className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold text-sm">স্টক শেষ (Out of Stock)</span>
@@ -476,7 +453,6 @@ function BrowseView() {
                   )}
                 </div>
 
-                {/* Content */}
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-1.5">
                     <div className="text-xs font-semibold text-primary-600 uppercase tracking-wider">{p.category}</div>
@@ -514,7 +490,6 @@ function BrowseView() {
         )}
       </div>
 
-      {/* Product Details & Verification Modal */}
       {selectedProduct && (
         <ProductModal 
           product={selectedProduct} 
@@ -523,7 +498,6 @@ function BrowseView() {
         />
       )}
 
-      {/* Shopping Cart Drawer */}
       {cartOpen && (
         <CartDrawer 
           cart={cart} 
@@ -541,10 +515,6 @@ function BrowseView() {
     </div>
   )
 }
-
-// ---------------------------------------------------------------------------
-// SUB-COMPONENTS (Modals, Drawers, Orders, Chats)
-// ---------------------------------------------------------------------------
 
 function ProductModal({ product, onClose, onAddToCart }: { product: ExtendedProduct; onClose: () => void; onAddToCart: () => void }) {
   const { profile } = useAuth()
@@ -604,7 +574,6 @@ function ProductModal({ product, onClose, onAddToCart }: { product: ExtendedProd
             <p className="text-gray-600 text-sm leading-relaxed bg-gray-50 p-4 rounded-2xl border border-gray-100">{product.description}</p>
           </div>
 
-          {/* Seller Card */}
           <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-lg uppercase">
@@ -622,7 +591,6 @@ function ProductModal({ product, onClose, onAddToCart }: { product: ExtendedProd
             )}
           </div>
 
-          {/* Agent Verification Report Box */}
           {verification && (
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-5 space-y-3">
               <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
@@ -645,7 +613,7 @@ function ProductModal({ product, onClose, onAddToCart }: { product: ExtendedProd
           )}
 
           <button onClick={onAddToCart} className="w-full py-4 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm shadow-lg shadow-primary-600/30 transition-all active:scale-98 cursor-pointer disabled:bg-gray-200 disabled:shadow-none disabled:cursor-not-allowed" disabled={product.stock === 0 || product.verification_status !== 'verified'}>
-            {product.stock === 0 ? 'স্টক শেষ (Out of Stock)' : product.verification_status !== 'verified' ? 'ভেরিফিকেশন সম্পন্ন হয়নি' : 'কার্টে যোগ করুন (Add to Cart)'}
+            {product.stock === 0 ? 'স্টক শেষ (Out of Stock)' : product.verification_status !== 'verified' ? 'ভেরিফিকেশন সম্পন্ন হয়নি' : 'কার্টে যোগ করুন (Add to Cart)'}
           </button>
         </div>
       </div>
@@ -674,53 +642,87 @@ function CartDrawer({ cart, settings, cartTotal, shipping, tax, grandTotal, onUp
             <div className="h-full flex flex-col items-center justify-center text-center space-y-3 py-12 text-gray-400">
               <div className="text-6xl">🛍️</div>
               <p className="font-medium text-base text-gray-600">আপনার কার্ট সম্পূর্ণ খালি!</p>
-              <button onClick={onClose} className="mt-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-xs font-bold">পণ্য ব্রাউজ করুন</button>
+              <button onClick={onClose} className="px-4 py-2 bg-primary-600 text-white rounded-xl text-xs font-semibold hover:bg-primary-700 transition-all">
+                পণ্য ব্রাউজ করুন
+              </button>
             </div>
-          ) : checkoutMode ? (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">ডেলিভারি ঠিকানা (Detailed Shipping Address)</label>
-                <textarea className="w-full p-3.5 rounded-xl border border-gray-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 outline-none text-sm min-h-[110px]" value={address} onChange={e => setAddress(e.target.value)} placeholder="বাসা নম্বর, রোড, এলাকা, থানা এবং জেলার নাম বিস্তারিত লিখুন..." />
-              </div>
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-2.5 text-sm">
-                <div className="flex justify-between text-gray-600"><span>সাবটোটাল</span><span>৳{cartTotal.toLocaleString('bn-BD')}</span></div>
-                <div className="flex justify-between text-gray-600"><span>শিপিং চার্জ</span><span>৳{shipping.toLocaleString('bn-BD')}</span></div>
-                <div className="flex justify-between text-gray-600"><span>প্ল্যাটফর্ম ট্যাক্স ({settings?.tax_percentage || 5}%)</span><span>৳{tax.toFixed(0)}</span></div>
-                <div className="flex justify-between font-extrabold text-base pt-2 border-t border-gray-200 text-gray-900"><span>সর্বমোট পরিশোধযোগ্য</span><span className="text-primary-600">৳{grandTotal.toLocaleString('bn-BD')}</span></div>
-              </div>
-              <button onClick={() => { if (address.trim()) onCheckout(address) }} className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/30 transition-all disabled:bg-gray-300 disabled:shadow-none cursor-pointer" disabled={!address.trim()}>কনফার্ম অর্ডার করুন (Place Order)</button>
-              <button onClick={() => setCheckoutMode(false)} className="w-full py-2.5 text-center text-xs font-bold text-gray-500 hover:text-gray-800">← কার্টে ফিরে যান</button>
-            </div>
-          ) : (
-            <div className="space-y-3">
+          ) : !checkoutMode ? (
+            <div className="space-y-4">
               {cart.map((c: CartItem) => (
-                <div key={c.product?.id} className="bg-white p-3.5 rounded-2xl border border-gray-200 flex gap-3.5 items-center shadow-xs">
-                  <img src={c.product?.image_url || PRODUCT_IMAGES[c.product?.category] || PRODUCT_IMAGES.Other} alt={c.product?.title} className="w-16 h-16 rounded-xl object-cover" />
+                <div key={c.product.id} className="flex gap-4 p-3 rounded-2xl border border-gray-100 bg-gray-50/50 items-center">
+                  <img src={c.product.image_url || PRODUCT_IMAGES[c.product.category] || PRODUCT_IMAGES.Other} alt={c.product.title} className="w-16 h-16 rounded-xl object-cover" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-gray-900 truncate">{c.product?.title}</div>
-                    <div className="text-xs font-semibold text-primary-600 mt-0.5">৳{(c.product?.price || 0).toLocaleString('bn-BD')}</div>
-                    <div className="flex items-center gap-3 mt-2">
-                      <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50">
-                        <button onClick={() => onUpdateQty(c.product.id, -1)} className="w-6 h-6 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-200 rounded-l-lg">−</button>
-                        <span className="w-7 text-center text-xs font-bold text-gray-800">{c.quantity}</span>
-                        <button onClick={() => onUpdateQty(c.product.id, 1)} className="w-6 h-6 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-200 rounded-r-lg">+</button>
-                      </div>
-                      <button onClick={() => onRemove(c.product.id)} className="text-[11px] font-bold text-red-500 hover:underline ml-auto">মুছে ফেলুন</button>
+                    <h4 className="font-bold text-sm text-gray-900 truncate">{c.product.title}</h4>
+                    <div className="text-xs text-primary-600 font-bold mt-0.5">৳{(c.product.price || 0).toLocaleString('bn-BD')}</div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button onClick={() => onUpdateQty(c.product.id, -1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">-</button>
+                      <span className="text-xs font-bold text-gray-800">{c.quantity}</span>
+                      <button onClick={() => onUpdateQty(c.product.id, 1)} className="w-6h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">+</button>
                     </div>
                   </div>
+                  <button onClick={() => onRemove(c.product.id)} className="text-gray-400 hover:text-red-600 p-2 text-sm">🗑️</button>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-primary-50 border border-primary-200 rounded-2xl p-4 space-y-1">
+                <h4 className="font-bold text-xs text-primary-800 uppercase">ডেলিভারি ঠিকানা</h4>
+                <p className="text-xs text-primary-600">আপনার সঠিক পূর্ণাঙ্গ ঠিকানা ও মোবাইল নম্বর প্রদান করুন।</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase">পূর্ণাঙ্গ ঠিকানা (Full Address & Phone):</label>
+                <textarea 
+                  rows={4}
+                  className="w-full p-3 rounded-xl border border-gray-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 outline-none text-sm font-medium bg-gray-50/50"
+                  placeholder="যেমন: বাসা নং, রোড নং, এলাকা, থানা, জেলা এবং মোবাইল নম্বর..."
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                />
+              </div>
             </div>
           )}
         </div>
 
-        {cart.length > 0 && !checkoutMode && (
+        {cart.length > 0 && (
           <div className="p-5 border-t border-gray-200 bg-gray-50/50 space-y-3">
-            <div className="flex justify-between items-center font-extrabold text-base text-gray-900">
-              <span>সর্বমোট আনুমানিক:</span>
-              <span className="text-primary-600 text-lg">৳{grandTotal.toLocaleString('bn-BD')}</span>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between text-gray-600">
+                <span>পণ্যের মূল্য (Subtotal):</span>
+                <span className="font-bold text-gray-900">৳{cartTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>ডেলিভারি চার্জ (Shipping):</span>
+                <span className="font-bold text-gray-900">৳{shipping.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>ভ্যাট ও ট্যাক্স (Tax):</span>
+                <span className="font-bold text-gray-900">৳{tax.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-2 border-t border-gray-200">
+                <span>সর্বমোট (Grand Total):</span>
+                <span className="text-primary-600 text-base">৳{grandTotal.toFixed(2)}</span>
+              </div>
             </div>
-            <button onClick={() => setCheckoutMode(true)} className="w-full py-4 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-extrabold text-sm shadow-lg shadow-primary-600/30 transition-all cursor-pointer">চেকআউটে এগিয়ে যান →</button>
+
+            {!checkoutMode ? (
+              <button onClick={() => setCheckoutMode(true)} className="w-full py-3.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm shadow-md transition-all">
+                অর্ডার নিশ্চিত করুন (Checkout)
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={() => setCheckoutMode(false)} className="px-4 py-3.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-100 transition-all">
+                  ← পেছনে
+                </button>
+                <button 
+                  onClick={() => { if (!address.trim()) { alert('দয়া করে ডেলিভারি ঠিকানা লিখুন'); return; } onCheckout(address); }} 
+                  className="flex-1 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all disabled:bg-gray-300"
+                  disabled={!address.trim()}
+                >
+                  ক্যাশ অন ডেলিভারি অর্ডার দিন ✓
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -733,61 +735,74 @@ function OrdersView() {
   const [orders, setOrders] = useState<ExtendedOrder[]>([])
   const [loading, setLoading] = useState(true)
 
-  const loadOrders = useCallback(async () => {
+  useEffect(() => {
     if (!profile?.id) return
-    try {
-      const { data } = await supabase.from('orders').select('*, items:order_items(*, product:products(*))').eq('buyer_id', profile.id).order('created_at', { ascending: false })
-      setOrders((data as unknown as ExtendedOrder[]) || [])
-    } catch (err) { console.error("Failed to load orders:", err) } 
-    finally { setLoading(false) }
-  }, [profile?.id])
+    supabase.from('orders').select('*, items:order_items(*, product:products(*))').eq('buyer_id', profile.id).order('created_at', { ascending: false })
+      .then(({ data }) => { setOrders((data as unknown as ExtendedOrder[]) || []); setLoading(false) })
+  }, [profile])
 
-  useEffect(() => { loadOrders() }, [loadOrders])
-
-  const STATUS_LABELS: Record<string, string> = { pending: 'অর্ডার গৃহীত হয়েছে', assigned: 'কনফার্মড', on_delivery: 'শিপিং চলছে', delivered: 'ডেলিভারি সম্পন্ন', cancelled: 'বাতিল' }
-  const STATUS_COLORS: Record<string, string> = { pending: 'bg-amber-100 text-amber-800', confirmed: 'bg-blue-100 text-blue-800', shipped: 'bg-purple-100 text-purple-800', delivered: 'bg-emerald-100 text-emerald-800', cancelled: 'bg-red-100 text-red-800' }
-
-  if (loading) return <div className="text-center py-20 text-gray-400">অর্ডার লোড করা হচ্ছে...</div>
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <h2 className="font-display font-bold text-2xl text-gray-900">আমার অর্ডার সমূহ</h2>
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display font-extrabold text-2xl text-gray-900">আমার অর্ডারসমূহ (My Orders)</h2>
+        <p className="text-sm text-gray-500">আপনার অতীতের সকল অর্ডারের তালিকা ও ডেলিভারি স্ট্যাটাস ট্র্যাক করুন।</p>
+      </div>
+
       {orders.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center text-gray-400">আপনার কোনো অতীত অর্ডার নেই।</div>
+        <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center space-y-3">
+          <div className="text-5xl">📦</div>
+          <h3 className="font-bold text-lg text-gray-800">কোনো অর্ডার পাওয়া যায়নি!</h3>
+          <p className="text-sm text-gray-500">আপনি এখনো কোনো পণ্য অর্ডার করেননি। ব্রাউজ ট্যাব থেকে পণ্য পছন্দ করে অর্ডার করুন।</p>
+        </div>
       ) : (
         <div className="space-y-4">
-          {orders.map(order => (
-            <div key={order.id} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+          {orders.map(o => (
+            <div key={o.id} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
                 <div>
-                  <span className="text-xs font-bold text-gray-400 uppercase">অর্ডার আইডি</span>
-                  <div className="font-mono font-bold text-sm text-gray-800">#{order.id?.slice(0, 8)}</div>
+                  <div className="text-xs text-gray-400 font-bold uppercase">অর্ডার আইডি: #{o.id.slice(0, 8)}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">তারিখ: {new Date(o.created_at).toLocaleDateString('bn-BD')}</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${STATUS_COLORS[order.status || 'pending']}`}>
-                    {STATUS_LABELS[order.status || 'pending']}
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                    o.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
+                    o.status === 'on_delivery' ? 'bg-blue-100 text-blue-800' :
+                    o.status === 'confirmed' ? 'bg-indigo-100 text-indigo-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {o.status === 'delivered' ? 'ডেলিভারি সম্পন্ন' : o.status === 'shipping' ? 'পথে আছে' : o.status === 'confirmed' ? 'নিশ্চিত করা হয়েছে' : 'পেন্ডিং'}
                   </span>
-                  <span className="font-display font-extrabold text-lg text-primary-600">৳{(order.total || 0).toLocaleString('bn-BD')}</span>
+                  <div className="font-display font-extrabold text-lg text-gray-900">৳{(o.total || 0).toLocaleString('bn-BD')}</div>
                 </div>
               </div>
 
-              <div className="divide-y divide-gray-100">
-                {order.items?.map((item) => (
-                  <div key={item.id} className="py-2.5 flex items-center gap-3.5">
-                    <img src={item.product?.image_url || PRODUCT_IMAGES[item.product?.category] || PRODUCT_IMAGES.Other} alt={item.product?.title} className="w-12 h-12 rounded-xl object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold text-gray-800 truncate">{item.product?.title}</div>
-                      <div className="text-xs text-gray-500">পরিমাণ: {item.quantity}টি</div>
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-gray-400 uppercase">অর্ডারকৃত পণ্যসমূহ:</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {o.items?.map(item => (
+                    <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/50 border border-gray-100">
+                      <img src={item.product?.image_url || PRODUCT_IMAGES[item.product?.category] || PRODUCT_IMAGES.Other} alt={item.product?.title} className="w-12 h-12 rounded-lg object-cover" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-xs text-gray-900 truncate">{item.product?.title}</div>
+                        <div className="text-[11px] text-gray-500">পরিমাণ: {item.quantity} × ৳{item.unit_price}</div>
+                      </div>
                     </div>
-                    <div className="font-bold text-sm text-gray-900">৳{((item.unit_price || 0) * (item.quantity || 0)).toLocaleString('bn-BD')}</div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              <div className="pt-2 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
-                <span>📍 ঠিকানা: {order.shipping_address}</span>
-                <span>তারিখ: {order.created_at ? new Date(order.created_at).toLocaleDateString('bn-BD') : ''}</span>
-              </div>
+              {o.shipping_address && (
+                <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  <span className="font-bold text-gray-700">ডেলিভারি ঠিকানা: </span>{o.shipping_address}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -798,91 +813,132 @@ function OrdersView() {
 
 function ChatsView() {
   const { profile } = useAuth()
-  const [chats, setChats] = useState<Chat[]>([])
-  const [contacts, setContacts] = useState<Map<string, Profile>>(new Map())
-  const [activeContact, setActiveContact] = useState<string | null>(null)
-  const [message, setMessage] = useState('')
-
-  const loadChats = useCallback(async () => {
-    if (!profile?.id) return
-    try {
-      const { data: chatData } = await supabase.from('chats').select('*').or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`).order('created_at', { ascending: true })
-      const chatList = (chatData || []) as Chat[]
-      setChats(chatList)
-      const otherIds = [...new Set(chatList.map(c => c.sender_id === profile.id ? c.receiver_id : c.sender_id))]
-      if (otherIds.length > 0) {
-        const { data: users } = await supabase.from('profiles').select('*').in('id', otherIds)
-        const map = new Map<string, Profile>()
-        ;(users || []).forEach(u => map.set(u.id, u as Profile))
-        setContacts(map)
-        setActiveContact(current => current || otherIds[0])
-      }
-    } catch (err) { console.error("Failed to load chat history:", err) }
-  }, [profile?.id])
+  const [chats, setChats] = useState<ExtendedChat[]>([])
+  const [selectedChat, setSelectedChat] = useState<ExtendedChat | null>(null)
+  const [messages, setMessages] = useState<ExtendedChat[]>([])
+  const [replyText, setReplyText] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadChats()
     if (!profile?.id) return
-    const channel = supabase.channel('realtime-chats').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chats' }, () => loadChats()).subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [loadChats, profile?.id])
+    supabase.from('chats').select('*, sender:profiles!sender_id(*), receiver:profiles!receiver_id(*), product:products(*)').or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`).order('created_at', { ascending: false })
+      .then(({ data }) => { setChats((data as unknown as ExtendedChat[]) || []); setLoading(false) })
+  }, [profile])
 
-  async function sendMessage() {
-    if (!profile?.id || !activeContact || !message.trim()) return
-    const msgText = message.trim()
-    setMessage('')
-    await supabase.from('chats').insert({ sender_id: profile.id, receiver_id: activeContact, message: msgText })
+  useEffect(() => {
+    if (!selectedChat) return
+    supabase.from('chats').select('*, sender:profiles!sender_id(*), receiver:profiles!receiver_id(*)').or(`and(sender_id.eq.${selectedChat.sender_id},receiver_id.eq.${selectedChat.receiver_id}),and(sender_id.eq.${selectedChat.receiver_id},receiver_id.eq.${selectedChat.sender_id})`).order('created_at', { ascending: true })
+      .then(({ data }) => setMessages((data as unknown as ExtendedChat[]) || []))
+  }, [selectedChat])
+
+  async function sendReply(e: React.FormEvent) {
+    e.preventDefault()
+    if (!replyText.trim() || !selectedChat || !profile?.id) return
+    const receiverId = selectedChat.sender_id === profile.id ? selectedChat.receiver_id : selectedChat.sender_id
+    const { data } = await supabase.from('chats').insert({
+      sender_id: profile.id,
+      receiver_id: receiverId,
+      product_id: selectedChat.product_id,
+      message: replyText.trim(),
+    }).select('*, sender:profiles!sender_id(*), receiver:profiles!receiver_id(*)').single()
+
+    if (data) {
+      setMessages(prev => [...prev, data as unknown as ExtendedChat])
+      setReplyText('')
+    }
   }
 
-  const contactChats = activeContact ? chats.filter(c => c.sender_id === activeContact || c.receiver_id === activeContact) : []
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
-      <h2 className="font-display font-bold text-2xl text-gray-900">সরাসরি চ্যাট ও সাপোর্ট</h2>
-      <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden flex h-[580px] shadow-sm">
-        <div className="w-72 border-r border-gray-200 overflow-y-auto bg-gray-50/50 divide-y divide-gray-100">
-          {contacts.size === 0 ? (
-            <div className="p-8 text-center text-xs text-gray-400">কোনো কথোপকথন শুরু হয়নি। পণ্যের বিস্তারিত পেজ থেকে সেলার বা এজেন্টের সাথে চ্যাট শুরু করতে পারেন।</div>
-          ) : (
-            [...contacts.entries()].map(([id, contact]) => (
-              <button key={id} onClick={() => setActiveContact(id)} className={`w-full p-4 flex items-center gap-3 text-left transition-colors ${activeContact === id ? 'bg-primary-50/80 border-r-4 border-r-primary-600' : 'hover:bg-gray-100/60'}`}>
-                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold uppercase shrink-0">
-                  {contact?.business_name?.charAt(0) || contact?.full_name?.charAt(0) || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-gray-900 truncate">{contact?.business_name || contact?.full_name || 'User'}</div>
-                  <div className="text-[11px] font-medium text-primary-600 capitalize">{contact?.role || 'user'}</div>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-
-        <div className="flex-1 flex flex-col bg-white">
-          {activeContact ? (
-            <>
-              <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-slate-50/50">
-                {contactChats.map(c => (
-                  <div key={c.id} className={`flex ${c.sender_id === profile?.id ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-xs ${c.sender_id === profile?.id ? 'bg-primary-600 text-white rounded-br-none font-medium' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'}`}>
-                      {c.message}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="p-3.5 border-t border-gray-200 flex gap-2 bg-white">
-                <input className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 outline-none text-sm" value={message} onChange={e => setMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="আপনার মেসেজ লিখুন..." />
-                <button onClick={sendMessage} className="px-6 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm transition-all">পাঠান</button>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center space-y-2">
-              <div className="text-4xl">💬</div>
-              <p className="text-sm font-medium">বাম পাশ থেকে একটি কথোপকথন সিলেক্ট করুন।</p>
-            </div>
-          )}
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display font-extrabold text-2xl text-gray-900">সরাসরি চ্যাট ও সাপোর্ট (Support Chats)</h2>
+        <p className="text-sm text-gray-500">বিক্রেতা ও স্থানীয় ফিল্ড এজেন্টদের সাথে আপনার পণ্যের চ্যাট ও কথোপকথন।</p>
       </div>
+
+      {chats.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center space-y-3">
+          <div className="text-5xl">💬</div>
+          <h3 className="font-bold text-lg text-gray-800">কোনো চ্যাট ইতিহাস নেই!</h3>
+          <p className="text-sm text-gray-500">কোনো পণ্যের বিবরণ থেকে "সেলারকে মেসেজ দিন" বাটনে ক্লিক করে চ্যাট শুরু করতে পারেন।</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm min-h-[500px]">
+          <div className="border-r border-gray-200 divide-y divide-gray-100 overflow-y-auto max-h-[600px]">
+            {chats.map(c => {
+              const otherUser = c.sender_id === profile?.id ? c.receiver : c.sender
+              const isSelected = selectedChat?.id === c.id
+              return (
+                <div 
+                  key={c.id} 
+                  onClick={() => setSelectedChat(c)}
+                  className={`p-4 cursor-pointer transition-all hover:bg-gray-50 flex items-center gap-3 ${isSelected ? 'bg-primary-50/60 border-l-4 border-primary-600' : ''}`}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-primary-100 text-primary-700 font-bold flex items-center justify-center uppercase shrink-0">
+                    {otherUser?.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs text-gray-900 truncate">{otherUser?.full_name || 'ইউজার'}</div>
+                    <div className="text-[11px] text-gray-500 truncate mt-0.5">{c.message}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="md:col-span-2 flex flex-col justify-between bg-gray-50/30">
+            {selectedChat ? (
+              <>
+                <div className="p-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                  <div className="font-bold text-sm text-gray-900">
+                    চ্যাট উইন্ডো (#{selectedChat.id.slice(0, 6)})
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px]">
+                  {messages.map(m => {
+                    const isMe = m.sender_id === profile?.id
+                    return (
+                      <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-md rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-xs ${isMe ? 'bg-primary-600 text-white rounded-br-xs' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-xs'}`}>
+                          <p>{m.message}</p>
+                          <span className={`block text-[9px] mt-1 text-right ${isMe ? 'text-primary-200' : 'text-gray-400'}`}>
+                            {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <form onSubmit={sendReply} className="p-3 bg-white border-t border-gray-200 flex gap-2">
+                  <input 
+                    type="text"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 outline-none text-xs font-medium bg-gray-50"
+                    placeholder="আপনার বার্তা লিখুন..."
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                  />
+                  <button type="submit" className="px-5 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-sm transition-all">
+                    প্রেরণ করুন
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400 text-xs">
+                বাম পাশের তালিকা থেকে যেকোনো চ্যাট সিলেক্ট করুন।
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
