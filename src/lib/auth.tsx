@@ -25,6 +25,7 @@ interface SignUpData {
   districtId?: string
   businessName?: string
   nationalId?: string
+  sellerProductsDesc?: string
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)

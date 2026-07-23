@@ -774,10 +774,10 @@ function OrdersView() {
                 <div className="flex items-center gap-3">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
                     o.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
-                    o.status === 'on_delivery' ? 'bg-blue-100 text-blue-800' :
+                    o.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
                     o.status === 'confirmed' ? 'bg-indigo-100 text-indigo-800' : 'bg-amber-100 text-amber-800'
                   }`}>
-                    {o.status === 'delivered' ? 'ডেলিভারি সম্পন্ন' : o.status === 'shipping' ? 'পথে আছে' : o.status === 'confirmed' ? 'নিশ্চিত করা হয়েছে' : 'পেন্ডিং'}
+                    {o.status === 'delivered' ? 'ডেলিভারি সম্পন্ন' : o.status === 'shipped' ? 'পথে আছে' : o.status === 'confirmed' ? 'নিশ্চিত করা হয়েছে' : 'পেন্ডিং'}
                   </span>
                   <div className="font-display font-extrabold text-lg text-gray-900">৳{(o.total || 0).toLocaleString('bn-BD')}</div>
                 </div>
