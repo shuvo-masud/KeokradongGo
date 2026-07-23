@@ -114,10 +114,10 @@ if (
       return <ConsumerDashboard />
 
     case 'seller':
-      return <ConsumerDashboard />
+      return <ConsumerDashboard/>
 
     case 'agent':
-      return <ConsumerDashboard />
+      return <ConsumerDashboard/>
 
     case 'admin':
       return <ConsumerDashboard />

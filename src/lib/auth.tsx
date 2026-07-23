@@ -125,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           district_id: data.districtId || null,
           business_name: data.businessName?.trim() || null,
           national_id: data.nationalId?.trim() || null,
+          seller_products_desc: data.sellerProductsDesc || null, // <--- Fixed: changed formData to data
         },
       },
     })

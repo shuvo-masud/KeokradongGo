@@ -87,15 +87,15 @@ export default function ConsumerDashboard() {
     )
   }
 
-  if (showSeller) {
+  if (showSeller){
     return (
       <div className="space-y-6">
         <div className="flex justify-end">
-          <button className="btn-outline" onClick={() => setShowSeller(false)}>
+          <button className="btn-outline" onClick={() => setShowAgent(false)}>
             ← Consumer Dashboard
           </button>
         </div>
-        <SellerDashboard />
+        <AgentDashboard />
       </div>
     )
   }
