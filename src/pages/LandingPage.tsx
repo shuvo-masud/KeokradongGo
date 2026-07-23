@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 const ROLES = [
   { icon: '🛍️', title: 'স্মার্ট ক্রেতা (Consumer)', desc: 'জেলা ভিত্তিক ঐতিহ্যবাহী ও আসল পণ্য খুঁজুন, ফিল্টার করুন এবং লোকাল এজেন্টের ভেরিফিকেশন রিপোর্ট ও রিয়েল-টাইম শিপিং ট্র্যাক করুন। প্রয়োজনে সেলার ও এজেন্টের সাথে সরাসরি চ্যাট করুন।', fromColor: 'from-primary-500', toColor: 'to-primary-700' },
   { icon: '🌾', title: 'লোকাল উৎপাদক (Seller)', desc: 'আপনার নিজস্ব ডিজিটাল স্টোরফ্রন্ট তৈরি করুন। উৎপাদনে নিজস্ব জেলার মেটাডেটা যুক্ত করে নিজস্ব মানসম্পন্ন অথবা, খাঁটি ঐতিহ্যবাহী পণ্য লিস্টিং করুন এবং চমৎকার ড্যাশবোর্ডে সেলস অ্যানালিটিক্স মনিটর করুন।', fromColor: 'from-accent-500', toColor: 'to-accent-700' },
-  { icon: '🔍', title: 'অনুমোদিত জেলা পরিদর্শক (Agent)', desc: 'সেলারদের আপলোড করা প্রতিটি পণ্যের ব্যাচ সশরীরে পরিদর্শন ও যাচাই করে নিশ্চিত করুন এবং প্রতি ভেরিফিকেশনে আকর্ষণীয় সার্ভিস ফি বা কমিশন (৳) আয় করুন।', fromColor: 'from-ocean-500', toColor: 'to-ocean-700' },
+  { icon: '🔍', title: 'অনুমোদিত জেলা পরিদর্শক (Agent)', desc: 'সেলারদের আপলোড করা প্রতিটি পণ্যের ব্যাচ যাচাই করে নিশ্চিত করুন এবং প্রতি ভেরিফিকেশনে আকর্ষণীয় সার্ভিস ফি বা কমিশন (৳) আয় করুন।', fromColor: 'from-ocean-500', toColor: 'to-ocean-700' },
   { icon: '🛡️', title: 'আঞ্চলিক অ্যাডমিন (Admin)', desc: 'প্ল্যাটফর্মের স্বচ্ছতা বজায় রাখতে ব্যাকগ্রাউন্ড চেকের মাধ্যমে সেলার ও এজেন্টদের অনুমোদন বা সাসপেন্ড করুন। ক্রেতাদের যেকোনো কমপ্লেইন বা ডিসপুট টিকিট দ্রুত সমাধান করুন।', fromColor: 'from-emerald-500', toColor: 'to-emerald-700' },
 ]
 
 const TRUST_STEPS = [
   { num: '০১', title: 'স্থানীয় লিস্টিং (Local Listing)', desc: 'বিক্রেতারা তাদের নিজস্ব মানসম্পন্ন অথবা, অঞ্চলের ঐতিহ্যবাহী ও আসল পণ্য যেমন— টাঙ্গাইলের শাড়ি, চট্টগ্রামের শুটকি মাছ, বা রাজশাহীর আম অরিজিনাল জেলা উল্লেখ করে লিস্টিং করেন।' },
-  { num: '০২', title: 'এজেন্ট পরিদর্শন (Agent Inspection)', desc: 'নির্দিষ্ট জেলার একজন অনুমোদিত ফিল্ড এজেন্ট সশরীরে বিক্রেতার কাছে যান, পণ্যের গুণগত মান ও খাঁটিত্ব যাচাই করেন এবং একটি ভেরিফিকেশন রিপোর্ট আপলোড করেন।' },
+  { num: '০২', title: 'এজেন্ট পরিদর্শন (Agent Inspection)', desc: 'নির্দিষ্ট জেলার একজন অনুমোদিত ফিল্ড এজেন্ট পণ্যের গুণগত মান ও বিবরনী সত্যতা যাচাই করেন এবং একটি ভেরিফিকেশন রিপোর্ট আপলোড করেন।' },
   { num: '০৩', title: 'স্মার্ট পারচেজ (Smart Buying)', desc: 'ক্রেতারা জেলা অনুযায়ী ব্রাউজ ও ফিল্টার করে শতভাগ গ্যারান্টিযুক্ত, এজেন্ট-ভেরিফাইড ও আসল ঐতিহ্যবাহী পণ্য নিশ্চিন্তে কেনাকাটা করেন।' },
 ]
 
@@ -60,7 +60,7 @@ export default function LandingPage() {
 </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-display font-bold text-lg tracking-tight">Keokradong</span>
+                <span className="font-display font-bold text-lg tracking-tight">Keokradong.store</span>
                 <span className="hidden sm:inline text-sm text-gray-400 font-normal">কেওক্রাডং</span>
               </div>
               <p className="text-xs font-bold text-lg-500 block leading-tight">
@@ -94,15 +94,21 @@ export default function LandingPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-100 text-primary-800 text-sm font-medium mb-6 animate-fade-in">
               <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
-              সেরা সব দেশী, ঐতিহ্যবাহী ও আসল পণ্যের বিকেন্দ্রীকৃত ট্রাস্ট-সেন্ট্রিক মার্কেটপ্লেস
+              সেরা সব দেশী, ঐতিহ্যবাহী ও আসল পণ্যের ট্রাস্ট-সেন্ট্রিক মার্কেটপ্লেস
             </div>
             <h1 className="font-display font-extrabold text-4xl md:text-6xl leading-tight tracking-tight text-gray-900 animate-slide-up">
               আসল লোকাল পণ্য,
               <br />
-              <span className="text-primary-600">যাচাই করবেন বিশ্বস্ত এজেন্ট।</span>
+              <span className="text-primary-600">কেওক্রাডং এ </span>
+              <br />
+
             </h1>
+            <h1 className="font-display font-extrabold text-xl md:text-2xl leading-tight tracking-tight text-gray-900 animate-slide-up">
+              <span className="text-primary-600">Connecting 64 Districts</span>
+            </h1>
+
             <p className="mt-6 text-lg text-gray-600 max-w-2xl leading-relaxed animate-slide-up">
-              কেওক্রাডং বাংলাদেশের স্থানীয় উৎপাদক ও স্মার্ট ক্রেতাদের সরাসরি সংযুক্ত করে। ই-কমার্সের গুণগত মান ও আস্থার সংকট দূর করতে প্রতিটি পণ্য ডেলিভারির আগে স্থানীয় ফিল্ড এজেন্ট দ্বারা সশরীরে ফিজিক্যাল ভেরিফিকেশন নিশ্চিত করা হয়।
+              কেওক্রাডং বাংলাদেশের স্থানীয় উৎপাদক ও স্মার্ট ক্রেতাদের সরাসরি সংযুক্ত করে। ই-কমার্সের গুণগত মান ও আস্থার সংকট দূর করতে প্রতিটি পণ্য ডেলিভারির আগে স্থানীয় ফিল্ড এজেন্ট দ্বারা ভেরিফিকেশন নিশ্চিত করা হয়।
             </p>
             <div className="mt-8 flex flex-wrap gap-3 animate-slide-up">
               <button 
@@ -120,8 +126,7 @@ export default function LandingPage() {
               </a>
             </div>
             <div className="mt-12 flex flex-wrap gap-8 text-sm">
-              <div><div className="font-display font-bold text-2xl text-gray-900">১২+</div><div className="text-gray-500">আওতাভুক্ত জেলা</div></div>
-              <div><div className="font-display font-bold text-2xl text-gray-900">৫টি</div><div className="text-gray-500">বিশেষায়িত ড্যাশবোর্ড</div></div>
+   
               <div><div className="font-display font-bold text-2xl text-gray-900">১০০%</div><div className="text-gray-500">এজেন্ট দ্বারা ভেরিফাইড</div></div>
             </div>
                   <div className="absolute top-8 right-8 rotate-12 opacity-15 pointer-events-none">
@@ -182,7 +187,6 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <div className="inline-block px-3 py-1 rounded-full bg-ocean-100 text-ocean-700 text-sm font-medium mb-4">মাল্টি-রোল ইকোসিস্টেম</div>
-            <p className="text-gray-500 max-w-2xl mx-auto">মার্কেটপ্লেসের প্রতিটি রোলের জন্য আলাদা ও কাস্টমাইজড ইউজার ইন্টারফেস ডিজাইন করা হয়েছে।</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {ROLES.map(role => (
@@ -203,7 +207,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="font-display font-bold text-2xl md:text-4xl mb-6 tracking-tight">বাংলাদেশের লোকাল অর্থনীতির জন্য তৈরি</h2>
           <p className="text-gray-600 text-lg leading-relaxed mb-8">
-            রাজশাহীর মিষ্টি আম থেকে টাঙ্গাইলের তাঁতের শাড়ি, সিলেটের চায়ের বাগান থেকে চট্টগ্রামের রূপচাঁদা শুঁটকি—বাংলাদেশের প্রতিটি জেলার আসল রূপ, ঐতিহ্য ও কারুশিল্প সরাসরি আপনার দোরগোড়ায় পৌঁছে দেবে কেওক্রাডং। প্রতিটি পদক্ষেপে থাকছে শতভাগ লোকাল এজেন্ট ভেরিফিকেশনের পরম নিশ্চিন্ত আস্থা!
+            যশোরের বিখ্যাত গুড়ের সন্দেশ থেকে রাজশাহীর মিষ্টি আম, আপনার হাতের নকশিকাথা থেকে টাঙ্গাইলের তাঁতের শাড়ি, সিলেটের চায়ের বাগান থেকে চট্টগ্রামের রূপচাঁদা শুঁটকি, অথবা আপনার উৎপাদিত মানসম্পন্ন আচার—বাংলাদেশের প্রতিটি জেলার আসল রূপ, ঐতিহ্য ও কারুশিল্প সরাসরি আপনার দোরগোড়ায় পৌঁছে দেবে কেওক্রাডং। প্রতিটি পদক্ষেপে থাকছে শতভাগ লোকাল এজেন্ট ভেরিফিকেশনের পরম নিশ্চিন্ত আস্থা!
           </p>
           <button 
             onClick={() => navigate('/auth')} 
@@ -238,8 +242,8 @@ export default function LandingPage() {
           <div className="text-xs text-center md:text-left space-y-1 text-gray-300">
             <div>
               <span className="font-bold text-white">Support:</span>{' '}
-              <a href="mailto:s.masud@keokradog.store" className="hover:text-primary-400 underline">
-                s.masud@keokradog.store
+              <a href="mailto:info@keokradong.store" className="hover:text-primary-400 underline">
+                info@keokradong.store
               </a>
             </div>
             <div>

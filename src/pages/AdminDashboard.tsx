@@ -233,128 +233,265 @@ function PendingProductsView() {
   )
 }
 
-function OrdersManagement(){
-const [orders,setOrders]=useState<any[]>([])
-const [agents,setAgents]=useState<Profile[]>([])
-const [status,setStatus]=useState('pending')
+function OrdersManagement() {
+  const [orders, setOrders] = useState<any[]>([])
+  const [agents, setAgents] = useState<Profile[]>([])
+  const [status, setStatus] = useState('pending')
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null)
+  const [orderItems, setOrderItems] = useState<any[]>([])
+  const [loadingDetails, setLoadingDetails] = useState(false)
 
-async function load(){
-const {data:ordersData}=await supabase
-.from('orders')
-.select(`
-*,
-buyer:profiles!buyer_id(*),
-items:order_items(
- *,
- product:products(*),
- district:districts(*)
-)
-`)
-.eq('status',status)
-.order('created_at',{ascending:false})
+  const load = useCallback(async () => {
+    const { data: ordersData } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        buyer:profiles!buyer_id(*),
+        assigned_agent:profiles!assigned_agent_id(*)
+      `)
+      .eq('status', status)
+      .order('created_at', { ascending: false })
 
-setOrders(ordersData || [])
+    setOrders(ordersData || [])
 
-const {data:agentData}=await supabase
-.from('profiles')
-.select('*')
-.eq('role','agent')
-.eq('status','active')
+    const { data: agentData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'agent')
+      .eq('status', 'active')
 
-setAgents(agentData || [])
+    setAgents(agentData || [])
+  }, [status])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  async function openOrderDetails(order: any) {
+    setSelectedOrder(order)
+    setLoadingDetails(true)
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          quantity,
+          unit_price,
+          district_id,
+          products(
+            title,
+            image_url
+          )
+        `)
+        .eq('order_id', order.id)
+
+      if (error) throw error
+      setOrderItems(data || [])
+    } catch (err) {
+      console.error("Failed to load order items:", err)
+    } finally {
+      setLoadingDetails(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-display font-bold text-2xl">Order Management</h1>
+        <p className="text-gray-500 text-sm mt-1">Review system orders, filter statuses, and assign delivery agents. Click any order for full details.</p>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {['pending', 'assigned', 'confirmed', 'shipped', 'delivered', 'on_delivery', 'cancelled'].map(s => (
+          <button
+            key={s}
+            onClick={() => setStatus(s)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition-all ${status === s ? 'bg-primary-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            {s.replace('_', ' ')}
+          </button>
+        ))}
+      </div>
+
+      {orders.length === 0 ? (
+        <div className="card p-12 text-center text-gray-400">No {status.replace('_', ' ')} orders found.</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {orders.map(order => (
+            <div 
+              key={order.id} 
+              onClick={() => openOrderDetails(order)}
+              className="card p-5 space-y-4 cursor-pointer hover:border-primary-500 transition-all border border-gray-100 shadow-xs bg-white rounded-2xl flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-xs font-bold text-gray-500">#{order.id.slice(0, 8)}</span>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${
+                    order.status === 'delivered' ? 'bg-emerald-50 text-emerald-700' :
+                    order.status === 'on_delivery' || order.status === 'shipped' ? 'bg-blue-50 text-blue-700' :
+                    order.status === 'cancelled' ? 'bg-rose-50 text-rose-700' :
+                    'bg-amber-50 text-amber-700'
+                  }`}>
+                    {order.status.replace('_', ' ')}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-gray-800">{order.buyer?.full_name || 'Customer'}</h3>
+                  <p className="text-xs text-gray-500 truncate">{order.shipping_address}</p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
+                <span className="text-xs text-gray-400">
+                  {new Date(order.created_at).toLocaleDateString()}
+                </span>
+                <span className="font-bold text-primary-600 text-sm">
+                  ৳{order.total?.toFixed(0)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ORDER DETAILS MODAL / SLIDER */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex justify-end animate-fadeIn">
+          <div className="bg-white w-full max-w-xl h-full overflow-y-auto p-6 space-y-6 shadow-2xl flex flex-col justify-between">
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b pb-4">
+                <div>
+                  <span className="text-xs font-mono font-bold text-gray-400 uppercase">Admin Order Review</span>
+                  <h2 className="text-xl font-bold text-gray-800">#{selectedOrder.id}</h2>
+                  <p className="text-xs text-gray-500">{new Date(selectedOrder.created_at).toLocaleString()}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedOrder(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Customer & Shipping Info */}
+              <div className="space-y-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">Customer & Payment Info</h3>
+                <div className="text-xs space-y-1.5 text-gray-700">
+                  <p><strong>Name:</strong> {selectedOrder.buyer?.full_name || 'N/A'}</p>
+                  <p><strong>Phone:</strong> {selectedOrder.buyer?.phone || selectedOrder.payment_mobile || 'N/A'}</p>
+                  <p><strong>Address:</strong> {selectedOrder.shipping_address}</p>
+                  <p><strong>Payment Method:</strong> <span className="uppercase font-bold text-primary-700">{selectedOrder.payment_method || 'Cash'}</span></p>
+                  {selectedOrder.transaction_id && (
+                    <p><strong>TrxID:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border">{selectedOrder.transaction_id}</span></p>
+                  )}
+                  <p><strong>Assigned Agent:</strong> <span className="font-semibold text-indigo-700">{selectedOrder.assigned_agent?.full_name || 'Not assigned yet'}</span></p>
+                </div>
+              </div>
+
+              {/* Assign Agent Box if pending or can reassign */}
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-2">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">Assign / Reassign Delivery Agent</label>
+                <AssignAgentBox orderId={selectedOrder.id} agents={agents} onAssigned={() => { load(); setSelectedOrder(null); }} />
+              </div>
+
+              {/* Order Items List */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Ordered Products</h3>
+                {loadingDetails ? (
+                  <p className="text-xs text-gray-400 text-center py-4">Loading items...</p>
+                ) : (
+                  <div className="space-y-2">
+                    {orderItems.map(item => (
+                      <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <img 
+                          src={item.products?.image_url || '/placeholder.png'} 
+                          alt="" 
+                          className="w-14 h-14 rounded-lg object-cover bg-white border"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-xs text-gray-800 truncate">{item.products?.title}</h4>
+                          <p className="text-[11px] text-gray-500">Qty: {item.quantity} × ৳{item.unit_price}</p>
+                        </div>
+                        <div className="font-bold text-xs text-primary-600">
+                          ৳{(item.quantity * item.unit_price).toFixed(0)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Summary */}
+            <div className="border-t pt-4 space-y-2 bg-white sticky bottom-0">
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Subtotal / Shipping</span>
+                <span>৳{(selectedOrder.total - (selectedOrder.shipping_cost || 0)).toFixed(0)} + ৳{selectedOrder.shipping_cost || 0}</span>
+              </div>
+              <div className="flex justify-between text-base font-bold text-gray-800">
+                <span>Total Amount</span>
+                <span className="text-primary-600">৳{selectedOrder.total?.toFixed(0)}</span>
+              </div>
+              <button 
+                onClick={() => setSelectedOrder(null)}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-colors mt-2"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
-useEffect(()=>{
-load()
-},[status])
+function AssignAgentBox({ orderId, agents, onAssigned }: { orderId: string; agents: Profile[]; onAssigned: () => void }) {
+  const [selectedAgent, setSelectedAgent] = useState('')
 
-return (
-<div className="space-y-6">
-<h1 className="font-display font-bold text-2xl">Order Management</h1>
-<div className="flex gap-2 flex-wrap">
-{['pending','assigned','confirmed','shipped','delivered'].map(s=>(
-<button
-key={s}
-onClick={()=>setStatus(s)}
-className={`px-4 py-2 rounded-lg text-sm capitalize ${status===s?'bg-primary-600 text-white':'bg-gray-100 text-gray-600'}`}
->
-{s}
-</button>
-))}
-</div>
+  async function assign() {
+    if (!selectedAgent) {
+      alert('Please select an agent')
+      return
+    }
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        assigned_agent_id: selectedAgent,
+        assigned_at: new Date().toISOString(),
+        status: 'assigned'
+      })
+      .eq('id', orderId)
 
-<div className="space-y-4">
-{orders.map(order=>(
-<div key={order.id} className="card p-5 space-y-4">
-<div className="flex justify-between">
-<div>
-<h3 className="font-bold">Order #{order.id.slice(0,8)}</h3>
-<p className="text-sm text-gray-500">Buyer: {order.buyer?.full_name}</p>
-</div>
-<div className="font-bold text-primary-600">৳{order.total}</div>
-</div>
-<div>
-<h4 className="font-semibold text-xs text-gray-400 uppercase">Products</h4>
-{order.items.map((item:any)=>(
-<div key={item.id} className="text-sm">
-{item.product?.title} - {item.district?.name}
-</div>
-))}
-</div>
-{status === 'pending' && (
-<AssignAgentBox orderId={order.id} agents={agents} onAssigned={load} />
-)}
-</div>
-))}
-</div>
-</div>
-)
-}
+    if (error) {
+      alert(error.message)
+      return
+    }
 
-function AssignAgentBox({orderId,agents,onAssigned}:{orderId:string;agents:Profile[];onAssigned:()=>void}){
-const [selectedAgent,setSelectedAgent]=useState('')
+    await supabase.from('notifications').insert({
+      user_id: selectedAgent,
+      type: 'order',
+      title: 'New Delivery Assigned',
+      body: 'A new order has been assigned to you by admin.'
+    })
 
-async function assign(){
-if(!selectedAgent){
-  alert('Please select an agent')
-  return
-}
-const {error}=await supabase
-.from('orders')
-.update({
-  assigned_agent_id:selectedAgent,
-  assigned_at:new Date().toISOString(),
-  status:'assigned'
-})
-.eq('id',orderId)
+    alert('Agent assigned successfully')
+    onAssigned()
+  }
 
-if(error){
-  alert(error.message)
-  return
-}
-
-await supabase.from('notifications').insert({
- user_id:selectedAgent,
- type:'order',
- title:'New Delivery Assigned',
- body:'A new order has been assigned to you.'
-})
-
-alert('Agent assigned successfully')
-onAssigned()
-}
-
-return (
-<div className="flex gap-3 items-center pt-2 border-t">
-<select className="input flex-1 text-sm" value={selectedAgent} onChange={(e)=>setSelectedAgent(e.target.value)}>
-<option value="">Select delivery agent</option>
-{agents.map(agent=>(
-<option key={agent.id} value={agent.id}>{agent.full_name}</option>
-))}
-</select>
-<button onClick={assign} className="btn-primary text-xs py-2 px-4" disabled={!selectedAgent}>Assign Agent</button>
-</div>
-)
+  return (
+    <div className="flex gap-3 items-center">
+      <select className="input flex-1 text-sm bg-white" value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)}>
+        <option value="">Select delivery agent</option>
+        {agents.map(agent => (
+          <option key={agent.id} value={agent.id}>{agent.full_name} ({agent.email})</option>
+        ))}
+      </select>
+      <button onClick={assign} className="btn-primary text-xs py-2 px-4 whitespace-nowrap" disabled={!selectedAgent}>Assign Agent</button>
+    </div>
+  )
 }
 
 function UsersView() {

@@ -1,7 +1,6 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-
 
 const STATUS = [
   'pending',
@@ -11,443 +10,254 @@ const STATUS = [
   'cancelled'
 ]
 
-
 export default function AgentOrdersView() {
-
   const { profile } = useAuth()
-
-  const [items, setItems] = useState<any[]>([])
+  const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null)
+  const [orderItems, setOrderItems] = useState<any[]>([])
+  const [loadingDetails, setLoadingDetails] = useState(false)
 
   useEffect(() => {
-  if (profile?.id) {
-    console.log("Agent ID:", profile.id)
-    loadOrders()
+    if (profile?.id) {
+      loadOrders()
+    }
+  }, [profile])
+
+  async function loadOrders() {
+    if (!profile?.id) return
+    setLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          buyer_id,
+          shipping_address,
+          created_at,
+          status,
+          total,
+          shipping_cost,
+          tax,
+          payment_method,
+          payment_mobile,
+          transaction_id,
+          buyer:profiles!orders_buyer_id_fkey(
+            id,
+            full_name,
+            email,
+            phone
+          )
+        `)
+        .eq('assigned_agent_id', profile.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setOrders(data || [])
+    } catch (error) {
+      console.error("Agent orders loading failed:", error)
+    } finally {
+      setLoading(false)
+    }
   }
-}, [profile])
 
+  async function openOrderDetails(order: any) {
+    setSelectedOrder(order)
+    setLoadingDetails(true)
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          quantity,
+          unit_price,
+          district_id,
+          products(
+            title,
+            image_url
+          )
+        `)
+        .eq('order_id', order.id)
 
-async function loadOrders() {
+      if (error) throw error
+      setOrderItems(data || [])
+    } catch (err) {
+      console.error("Failed to load order items:", err)
+    } finally {
+      setLoadingDetails(false)
+    }
+  }
 
-  if (!profile?.id) return
+  async function updateStatus(orderId: string, status: string, e?: React.ChangeEvent<HTMLSelectElement>) {
+    if (e) e.stopPropagation()
+      
+    const { error } = await supabase
+      .from('orders')
+      .update({ status })
+      .eq('id', orderId)
 
-  setLoading(true)
-
-  try {
-
-    // 1. Get assigned orders
-    const { data: orders, error: orderError } = await supabase
-  .from('orders')
-  .select(`
-    id,
-    buyer_id,
-    shipping_address,
-    created_at,
-    status,
-    buyer:profiles!orders_buyer_id_fkey(
-      id,
-      full_name,
-      email
-    )
-  `)
-  .eq('assigned_agent_id', profile.id)
-  console.log("Orders with buyers:", orders)
-
-
-    if(orderError){
-  console.error("ORDER QUERY ERROR:", orderError)
-  throw orderError
-}
-
-console.log("Assigned orders:", orders)
-
-
-    if(!orders || orders.length === 0){
-
-      setItems([])
+    if (error) {
+      alert(error.message)
       return
-
     }
 
-
-    const orderIds = orders.map(
-      order => order.id
-    )
-
-
-    // 2. Get items of those orders
-    const { data: items, error:itemError } = await supabase
-  .from('order_items')
-  .select(`
-    id,
-    order_id,
-    quantity,
-    unit_price,
-    district_id,
-
-    products(
-      title,
-      image_url
-    )
-  `)
-  .in(
-    'order_id',
-    orderIds
-  )
-
-
-    if(itemError)
-      throw itemError
-
-
-
-    const merged = items?.map(item => ({
-      ...item,
-      orders: orders.find(
-        o => o.id === item.order_id
-      )
-    })) || []
-
-
-    setItems(merged)
-
-
-
-  } catch(error){
-
-    console.error(
-      "Agent orders loading failed:",
-      error
-    )
-
-  } finally {
-
-    setLoading(false)
-
+    // Update local state smoothly
+    setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o))
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder({ ...selectedOrder, status })
+    }
   }
 
-}
-
-
-
-
-
-  async function updateStatus(
-  orderId: string,
-  status: string
-) {
-
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      status
-    })
-    .eq(
-      'id',
-      orderId
-    )
-
-  if(error){
-    console.error(
-      "Status update failed:",
-      error
-    )
-    alert(error.message)
-    return
+  if (loading) {
+    return <div className="card p-10 text-center text-gray-500 font-medium">Loading assigned delivery orders...</div>
   }
-
-  loadOrders()
-}
-
-
-
-
-
-  if(loading){
-
-    return (
-
-      <div className="card p-10 text-center">
-
-        Loading assigned delivery orders...
-
-      </div>
-
-    )
-
-  }
-
-
-
 
   return (
-
     <div className="space-y-6">
-
-
       <div>
-
-        <h1 className="text-2xl font-bold">
-          Delivery Orders
-        </h1>
-
-        <p className="text-gray-500 text-sm">
-          Orders assigned to you for delivery
-        </p>
-
+        <h1 className="text-2xl font-bold">Delivery Orders</h1>
+        <p className="text-gray-500 text-sm">Orders assigned to you for delivery. Click any order for full details.</p>
       </div>
 
-
-
-
-      {
-        items.length === 0 ?
-
-
-        (
-
-          <div className="card p-10 text-center text-gray-400">
-
-            No assigned delivery orders
-
-          </div>
-
-        )
-
-
-        :
-
-
-        (
-
-          <div className="space-y-4">
-
-
-          {
-            items.map(item => (
-
-              <div
-                key={item.id}
-                className="card p-5 space-y-4"
-              >
-
-
-
+      {orders.length === 0 ? (
+        <div className="card p-10 text-center text-gray-400">No assigned delivery orders</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {orders.map(order => (
+            <div
+              key={order.id}
+              onClick={() => openOrderDetails(order)}
+              className="card p-5 space-y-4 cursor-pointer hover:border-primary-500 transition-all border border-gray-100 shadow-xs bg-white rounded-2xl flex flex-col justify-between"
+            >
+              <div className="space-y-2">
                 <div className="flex justify-between items-center">
-
-                  <div>
-
-                    <h3 className="font-bold">
-
-                      Order #
-                      {item.orders?.id?.slice(0,8)}
-
-                    </h3>
-
-
-                    <p className="text-xs text-gray-500">
-
-                      {
-                        item.orders?.created_at
-                        &&
-                        new Date(
-                          item.orders.created_at
-                        ).toLocaleDateString()
-                      }
-
-                    </p>
-
-                  </div>
-
-
-                  <div className="font-bold text-primary-600">
-
-                    ৳
-                    {
-                      (
-                        item.unit_price *
-                        item.quantity
-                      ).toFixed(0)
-                    }
-
-                  </div>
-
-
+                  <span className="font-mono text-xs font-bold text-gray-500">#{order.id.slice(0, 8)}</span>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${
+                    order.status === 'delivered' ? 'bg-emerald-50 text-emerald-700' :
+                    order.status === 'on_delivery' ? 'bg-blue-50 text-blue-700' :
+                    order.status === 'cancelled' ? 'bg-rose-50 text-rose-700' :
+                    'bg-amber-50 text-amber-700'
+                  }`}>
+                    {order.status.replace('_', ' ')}
+                  </span>
                 </div>
-
-
-
-
-
-                <div className="flex gap-4">
-
-
-                  <img
-
-                    src={
-                      item.products?.image_url ||
-                      '/placeholder.png'
-                    }
-
-                    className="w-20 h-20 rounded-xl object-cover"
-
-                    alt="product"
-
-                  />
-
-
-                  <div>
-
-
-                    <h3 className="font-semibold">
-
-                      {
-                        item.products?.title
-                      }
-
-                    </h3>
-
-
-                    <p className="text-sm text-gray-500">
-
-                      Quantity:
-                      {' '}
-                      {item.quantity}
-
-                    </p>
-
-
-                    <p className="text-sm text-gray-500">
-
-                      District ID:
-                      {' '}
-                      {item.district_id}
-
-                    </p>
-
-
-                  </div>
-
-
-                </div>
-
-
-
-
-
-
-                <div className="space-y-1 text-sm">
-
-
-                  <p>
-
-                    <strong>
-                      Customer:
-                    </strong>
-
-                    {' '}
-
-                    {
-                      item.orders?.buyer?.full_name
-                      ||
-                      'Unknown'
-                    }
-
-                  </p>
-
-
-
-
-                  <p>
-
-                    <strong>
-                      Address:
-                    </strong>
-
-                    {' '}
-
-                    {
-                      item.orders?.shipping_address
-                    }
-
-                  </p>
-
-
-                </div>
-
-
-
-
-
-
 
                 <div>
-
-
-                  <label className="text-sm font-semibold">
-
-                    Delivery Status
-
-                  </label>
-
-
-                  <select
-                  value={item.orders?.status || 'pending'}
-                  onChange={(e)=> 
-                   updateStatus(
-                  item.orders.id,
-                 e.target.value
-                 )
-                 }
-                >
-
-
-                    {
-                      STATUS.map(status => (
-
-                        <option
-
-                          key={status}
-
-                          value={status}
-
-                        >
-
-                          {status}
-
-                        </option>
-
-                      ))
-
-                    }
-
-
-                  </select>
-
-
+                  <h3 className="font-bold text-gray-800">{order.buyer?.full_name || 'Customer'}</h3>
+                  <p className="text-xs text-gray-500 truncate">{order.shipping_address}</p>
                 </div>
-
-
-
-
               </div>
 
+              <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
+                <span className="text-xs text-gray-400">
+                  {new Date(order.created_at).toLocaleDateString()}
+                </span>
+                <span className="font-bold text-primary-600 text-sm">
+                  ৳{order.total?.toFixed(0)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-            ))
+      {/* ORDER DETAILS MODAL / SLIDER */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex justify-end animate-fadeIn">
+          <div className="bg-white w-full max-w-xl h-full overflow-y-auto p-6 space-y-6 shadow-2xl flex flex-col justify-between">
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b pb-4">
+                <div>
+                  <span className="text-xs font-mono font-bold text-gray-400 uppercase">Order Details</span>
+                  <h2 className="text-xl font-bold text-gray-800">#{selectedOrder.id}</h2>
+                  <p className="text-xs text-gray-500">{new Date(selectedOrder.created_at).toLocaleString()}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedOrder(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
 
-          }
+              {/* Status Changer */}
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-2">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">Update Status</label>
+                <select
+                  value={selectedOrder.status}
+                  onChange={(e) => updateStatus(selectedOrder.id, e.target.value)}
+                  className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm font-semibold outline-none focus:border-primary-500"
+                >
+                  {STATUS.map(s => (
+                    <option key={s} value={s}>{s.toUpperCase().replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </div>
 
+              {/* Customer & Shipping Info */}
+              <div className="space-y-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">Customer & Delivery Info</h3>
+                <div className="text-xs space-y-1.5 text-gray-700">
+                  <p><strong>Name:</strong> {selectedOrder.buyer?.full_name || 'N/A'}</p>
+                  <p><strong>Phone:</strong> {selectedOrder.buyer?.phone || selectedOrder.payment_mobile || 'N/A'}</p>
+                  <p><strong>Address:</strong> {selectedOrder.shipping_address}</p>
+                  <p><strong>Payment Method:</strong> <span className="uppercase font-bold text-primary-700">{selectedOrder.payment_method || 'Cash'}</span></p>
+                  {selectedOrder.transaction_id && (
+                    <p><strong>TrxID:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border">{selectedOrder.transaction_id}</span></p>
+                  )}
+                </div>
+              </div>
 
+              {/* Order Items List */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Ordered Products</h3>
+                {loadingDetails ? (
+                  <p className="text-xs text-gray-400 text-center py-4">Loading items...</p>
+                ) : (
+                  <div className="space-y-2">
+                    {orderItems.map(item => (
+                      <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <img 
+                          src={item.products?.image_url || '/placeholder.png'} 
+                          alt="" 
+                          className="w-14 h-14 rounded-lg object-cover bg-white border"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-xs text-gray-800 truncate">{item.products?.title}</h4>
+                          <p className="text-[11px] text-gray-500">Qty: {item.quantity} × ৳{item.unit_price}</p>
+                        </div>
+                        <div className="font-bold text-xs text-primary-600">
+                          ৳{(item.quantity * item.unit_price).toFixed(0)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Summary */}
+            <div className="border-t pt-4 space-y-2 bg-white sticky bottom-0">
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Subtotal / Shipping</span>
+                <span>৳{(selectedOrder.total - (selectedOrder.shipping_cost || 0)).toFixed(0)} + ৳{selectedOrder.shipping_cost || 0}</span>
+              </div>
+              <div className="flex justify-between text-base font-bold text-gray-800">
+                <span>Total Amount</span>
+                <span className="text-primary-600">৳{selectedOrder.total?.toFixed(0)}</span>
+              </div>
+              <button 
+                onClick={() => setSelectedOrder(null)}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-colors mt-2"
+              >
+                Close Details
+              </button>
+            </div>
           </div>
-
-        )
-
-      }
-
-
-
+        </div>
+      )}
     </div>
-
   )
-
 }

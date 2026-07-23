@@ -1,3 +1,5 @@
+// Complete updated ConsumerDashboard file with bKash/Rocket/Nagad and Cash 30% advance payment rules added to the CartDrawer component.
+
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
@@ -240,7 +242,7 @@ function BrowseView() {
   const tax = cartTotal * ((settings?.tax_percentage || 5) / 100)
   const grandTotal = cartTotal + shipping + tax
 
-  async function checkout(address: string) {
+  async function checkout(address: string, paymentMethod: string, paymentDetails?: { txId?: string; mobile?: string }) {
     if (!profile?.id || cart.length === 0) return
     try {
       const { data: order } = await supabase.from('orders').insert({
@@ -250,6 +252,9 @@ function BrowseView() {
         tax,
         status: 'pending',
         shipping_address: address,
+        payment_method: paymentMethod,
+        payment_mobile: paymentDetails?.mobile || null,
+        transaction_id: paymentDetails?.txId || null,
       }).select().single()
       
       if (!order) return
@@ -271,7 +276,7 @@ function BrowseView() {
           user_id: sellerId,
           type: 'order',
           title: 'নতুন অর্ডার এসেছে!',
-          body: `আপনার স্টোরে ৳${grandTotal.toFixed(2)} টাকার একটি নতুন অর্ডার এসেছে।`,
+          body: `আপনার স্টোরে ৳${grandTotal.toFixed(2)} টাকার একটি নতুন অর্ডার এসেছে (${paymentMethod === 'cash' ? 'ক্যাশ অন ডেলিভারি - ৩০% অগ্রিম' : paymentMethod}).`,
         })
       }
       setCart([])
@@ -624,6 +629,11 @@ function ProductModal({ product, onClose, onAddToCart }: { product: ExtendedProd
 function CartDrawer({ cart, settings, cartTotal, shipping, tax, grandTotal, onUpdateQty, onRemove, onClose, onCheckout }: any) {
   const [checkoutMode, setCheckoutMode] = useState(false)
   const [address, setAddress] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'bkash' | 'rocket' | 'nagad' | 'cash'>('bkash')
+  const [mobileNumber, setMobileNumber] = useState('')
+  const [txId, setTxId] = useState('')
+
+  const thirtyPercentAmount = (grandTotal * 0.3).toFixed(2)
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -632,7 +642,7 @@ function CartDrawer({ cart, settings, cartTotal, shipping, tax, grandTotal, onUp
         <div className="p-5 border-b border-gray-200 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center gap-2">
             <span className="text-xl">🛒</span>
-            <h2 className="font-display font-extrabold text-lg text-gray-900">{checkoutMode ? 'চেকআউট ও ডেলিভারি' : 'আপনার শপিং কার্ট'}</h2>
+            <h2 className="font-display font-extrabold text-lg text-gray-900">{checkoutMode ? 'চেকআউট ও পেমেন্ট' : 'আপনার শপিং কার্ট'}</h2>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-sm">✕</button>
         </div>
@@ -657,69 +667,183 @@ function CartDrawer({ cart, settings, cartTotal, shipping, tax, grandTotal, onUp
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => onUpdateQty(c.product.id, -1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">-</button>
                       <span className="text-xs font-bold text-gray-800">{c.quantity}</span>
-                      <button onClick={() => onUpdateQty(c.product.id, 1)} className="w-6h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">+</button>
+                      <button onClick={() => onUpdateQty(c.product.id, 1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">+</button>
                     </div>
                   </div>
-                  <button onClick={() => onRemove(c.product.id)} className="text-gray-400 hover:text-red-600 p-2 text-sm">🗑️</button>
+                  <button onClick={() => onRemove(c.product.id)} className="text-xs text-red-500 font-bold hover:underline">ডিলিট</button>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="bg-primary-50 border border-primary-200 rounded-2xl p-4 space-y-1">
-                <h4 className="font-bold text-xs text-primary-800 uppercase">ডেলিভারি ঠিকানা</h4>
-                <p className="text-xs text-primary-600">আপনার সঠিক পূর্ণাঙ্গ ঠিকানা ও মোবাইল নম্বর প্রদান করুন।</p>
-              </div>
+            <div className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase">পূর্ণাঙ্গ ঠিকানা (Full Address & Phone):</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">ডেলিভারি ঠিকানা (Delivery Address) *</label>
                 <textarea 
-                  rows={4}
-                  className="w-full p-3 rounded-xl border border-gray-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 outline-none text-sm font-medium bg-gray-50/50"
-                  placeholder="যেমন: বাসা নং, রোড নং, এলাকা, থানা, জেলা এবং মোবাইল নম্বর..."
+                  rows={3}
+                  className="w-full p-3 rounded-xl border border-gray-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 outline-none text-sm bg-gray-50/50"
+                  placeholder="আপনার বাসা/অফিসের ঠিকানা, থানা এবং জেলার নাম বিস্তারিত লিখুন..."
                   value={address}
                   onChange={e => setAddress(e.target.value)}
                 />
               </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">পেমেন্ট পদ্ধতি নির্বাচন করুন *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setPaymentMethod('bkash')}
+                    className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${paymentMethod === 'bkash' ? 'bg-pink-50 border-pink-500 text-pink-700 shadow-xs' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <span>📱</span> বিকাশ (bKash)
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setPaymentMethod('rocket')}
+                    className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${paymentMethod === 'rocket' ? 'bg-purple-50 border-purple-500 text-purple-700 shadow-xs' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <span>🚀</span> রকেট (Rocket)
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setPaymentMethod('nagad')}
+                    className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${paymentMethod === 'nagad' ? 'bg-orange-50 border-orange-500 text-orange-700 shadow-xs' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <span>🟠</span> নগদ (Nagad)
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setPaymentMethod('cash')}
+                    className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${paymentMethod === 'cash' ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <span>💵</span> ক্যাশ (Cash)
+                  </button>
+                </div>
+              </div>
+
+              {/* Bkash / Mobile Financial Services Info */}
+              {(paymentMethod === 'bkash' || paymentMethod === 'rocket' || paymentMethod === 'nagad') && (
+                <div className="bg-pink-50 border border-pink-200 rounded-2xl p-4 text-xs text-pink-900 space-y-3">
+                  <div className="font-bold flex items-center gap-1.5 text-pink-800">
+                    <span>💡</span> 
+                    <span>
+                      {paymentMethod === 'bkash' ? 'বিকাশ' : paymentMethod === 'rocket' ? 'রকেট' : 'নগদ'} পেমেন্ট নির্দেশনা
+                    </span>
+                  </div>
+                  <p className="leading-relaxed">
+                    দয়া করে আমাদের মার্চেন্ট নম্বরে সম্পূর্ণ মোট মূল্য <strong>৳{grandTotal.toFixed(2)}</strong> সেন্ড মানি (Send Money) করুন:
+                  </p>
+                  <div className="bg-white p-3 rounded-xl border border-pink-200 text-center font-mono font-bold text-sm text-pink-700 tracking-wider">
+                    018XXXXXXXX (Merchant / Personal)
+                  </div>
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-bold text-pink-800 mb-1">যে নম্বর থেকে টাকা পাঠিয়েছেন:</label>
+                      <input 
+                        type="text" 
+                        placeholder="যেমন: 017XXXXXXXX"
+                        value={mobileNumber}
+                        onChange={e => setMobileNumber(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-pink-200 bg-white text-xs outline-none focus:ring-1 focus:ring-pink-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-pink-800 mb-1">ট্রানজেকশন আইডি (TrxID):</label>
+                      <input 
+                        type="text" 
+                        placeholder="যেমন: 9N7A6BC5"
+                        value={txId}
+                        onChange={e => setTxId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-pink-200 bg-white text-xs outline-none focus:ring-1 focus:ring-pink-400 font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Cash Payment Info with 30% Advance Rule */}
+              {paymentMethod === 'cash' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 space-y-3">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                    <span>⚠️</span> 
+                    <span>ক্যাশ অন ডেলিভারি (৩০% অগ্রিম পেমেন্ট শর্ত)</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    ক্যাশ অন ডেলিভারি বেছে নেওয়ার জন্য আপনাকে অর্ডারের মোট মূল্যের ন্যূনতম <strong>৩০%</strong> (অর্থাৎ <strong>৳{thirtyPercentAmount}</strong>) আমাদের বিকাশ নম্বরে আগে পরিশোধ করতে হবে। বাকি ৭০% পণ্য হাতে পেয়ে জেলা এজেন্টের নিকট পরিশোধ করবেন।
+                  </p>
+                  <div className="bg-white p-3 rounded-xl border border-amber-200 text-center font-mono font-bold text-sm text-amber-800 tracking-wider">
+                    বিকাশ (মার্চেন্ট/পার্সোনাল): 018XXXXXXXX
+                  </div>
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-900 mb-1">আপনার বিকাশ নম্বর (যেখান থেকে ৩০% পাঠিয়েছেন):</label>
+                      <input 
+                        type="text" 
+                        placeholder="যেমন: 017XXXXXXXX"
+                        value={mobileNumber}
+                        onChange={e => setMobileNumber(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-white text-xs outline-none focus:ring-1 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-900 mb-1">অগ্রিম পেমেন্টের ট্রানজেকশন আইডি (TrxID):</label>
+                      <input 
+                        type="text" 
+                        placeholder="যেমন: 9N7A6BC5"
+                        value={txId}
+                        onChange={e => setTxId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-white text-xs outline-none focus:ring-1 focus:ring-amber-400 font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {cart.length > 0 && (
-          <div className="p-5 border-t border-gray-200 bg-gray-50/50 space-y-3">
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between text-gray-600">
-                <span>পণ্যের মূল্য (Subtotal):</span>
-                <span className="font-bold text-gray-900">৳{cartTotal.toFixed(2)}</span>
+          <div className="p-5 border-t border-gray-200 bg-gray-50/80 space-y-3">
+            <div className="space-y-1.5 text-xs text-gray-600">
+              <div className="flex justify-between">
+                <span>পণ্যের মূল্য:</span>
+                <span className="font-bold text-gray-900">৳{cartTotal.toLocaleString('bn-BD')}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>ডেলিভারি চার্জ (Shipping):</span>
-                <span className="font-bold text-gray-900">৳{shipping.toFixed(2)}</span>
+              <div className="flex justify-between">
+                <span>ডেলিভারি চার্জ:</span>
+                <span className="font-bold text-gray-900">৳{shipping.toLocaleString('bn-BD')}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>ভ্যাট ও ট্যাক্স (Tax):</span>
+              <div className="flex justify-between">
+                <span>ট্যাক্স ({settings?.tax_percentage || 5}%):</span>
                 <span className="font-bold text-gray-900">৳{tax.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-2 border-t border-gray-200">
-                <span>সর্বমোট (Grand Total):</span>
-                <span className="text-primary-600 text-base">৳{grandTotal.toFixed(2)}</span>
+              <div className="flex justify-between pt-2 border-t border-gray-200 text-sm">
+                <span className="font-bold text-gray-900">সর্বমোট (Grand Total):</span>
+                <span className="font-display font-extrabold text-primary-600 text-base">৳{grandTotal.toFixed(2)}</span>
               </div>
+              {paymentMethod === 'cash' && (
+                <div className="flex justify-between pt-1 text-amber-700 font-bold bg-amber-50 p-2 rounded-lg border border-amber-200">
+                  <span>এখনই পরিশোধ করতে হবে (৩০%):</span>
+                  <span>৳{thirtyPercentAmount}</span>
+                </div>
+              )}
             </div>
 
             {!checkoutMode ? (
-              <button onClick={() => setCheckoutMode(true)} className="w-full py-3.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm shadow-md transition-all">
-                অর্ডার নিশ্চিত করুন (Checkout)
+              <button onClick={() => setCheckoutMode(true)} className="w-full py-3.5 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm shadow-lg shadow-primary-600/30 transition-all active:scale-98">
+                অর্ডার কনফার্ম করতে এগিয়ে যান →
               </button>
             ) : (
               <div className="flex gap-2">
-                <button onClick={() => setCheckoutMode(false)} className="px-4 py-3.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-100 transition-all">
+                <button onClick={() => setCheckoutMode(false)} className="px-4 py-3.5 rounded-2xl border border-gray-300 text-gray-700 font-semibold text-xs hover:bg-gray-100 transition-all">
                   ← পেছনে
                 </button>
                 <button 
-                  onClick={() => { if (!address.trim()) { alert('দয়া করে ডেলিভারি ঠিকানা লিখুন'); return; } onCheckout(address); }} 
-                  className="flex-1 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition-all disabled:bg-gray-300"
-                  disabled={!address.trim()}
+                  onClick={() => onCheckout(address, paymentMethod, { mobile: mobileNumber, txId })} 
+                  disabled={!address.trim() || !mobileNumber.trim() || !txId.trim()} 
+                  className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition-all active:scale-98 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  ক্যাশ অন ডেলিভারি অর্ডার দিন ✓
+                  অর্ডার সম্পন্ন করুন ✓
                 </button>
               </div>
             )}
@@ -742,55 +866,46 @@ function OrdersView() {
   }, [profile])
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+    return <div className="p-12 text-center text-gray-400 font-medium">অর্ডার লোড হচ্ছে...</div>
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-display font-extrabold text-2xl text-gray-900">আমার অর্ডারসমূহ (My Orders)</h2>
-        <p className="text-sm text-gray-500">আপনার অতীতের সকল অর্ডারের তালিকা ও ডেলিভারি স্ট্যাটাস ট্র্যাক করুন।</p>
-      </div>
-
+      <h2 className="font-display font-bold text-xl text-gray-900">আমার অর্ডারসমূহ ({orders.length})</h2>
       {orders.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center space-y-3">
+        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center space-y-3">
           <div className="text-5xl">📦</div>
-          <h3 className="font-bold text-lg text-gray-800">কোনো অর্ডার পাওয়া যায়নি!</h3>
+          <h3 className="font-bold text-lg text-gray-800">আপনার কোনো অর্ডার নেই!</h3>
           <p className="text-sm text-gray-500">আপনি এখনো কোনো পণ্য অর্ডার করেননি। ব্রাউজ ট্যাব থেকে পণ্য পছন্দ করে অর্ডার করুন।</p>
         </div>
       ) : (
         <div className="space-y-4">
           {orders.map(o => (
-            <div key={o.id} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
+            <div key={o.id} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-gray-100">
                 <div>
                   <div className="text-xs text-gray-400 font-bold uppercase">অর্ডার আইডি: #{o.id.slice(0, 8)}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">তারিখ: {new Date(o.created_at).toLocaleDateString('bn-BD')}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{new Date(o.created_at).toLocaleString('bn-BD')}</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  <span className={`px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider ${
                     o.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
-                    o.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
-                    o.status === 'confirmed' ? 'bg-indigo-100 text-indigo-800' : 'bg-amber-100 text-amber-800'
+                    o.status === 'shipped' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
                   }`}>
-                    {o.status === 'delivered' ? 'ডেলিভারি সম্পন্ন' : o.status === 'shipped' ? 'পথে আছে' : o.status === 'confirmed' ? 'নিশ্চিত করা হয়েছে' : 'পেন্ডিং'}
+                    {o.status === 'delivered' ? 'ডেলিভারি সম্পন্ন' : o.status === 'shipped' ? 'শিপমেন্টে আছে' : 'পেন্ডিং / প্রক্রিয়াধীন'}
                   </span>
-                  <div className="font-display font-extrabold text-lg text-gray-900">৳{(o.total || 0).toLocaleString('bn-BD')}</div>
+                  <span className="font-display font-extrabold text-base text-gray-900">৳{(o.total || 0).toLocaleString('bn-BD')}</span>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <div className="text-xs font-bold text-gray-400 uppercase">অর্ডারকৃত পণ্যসমূহ:</div>
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">অর্ডারকৃত পণ্যসমূহ:</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {o.items?.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/50 border border-gray-100">
+                    <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
                       <img src={item.product?.image_url || PRODUCT_IMAGES[item.product?.category] || PRODUCT_IMAGES.Other} alt={item.product?.title} className="w-12 h-12 rounded-lg object-cover" />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-xs text-gray-900 truncate">{item.product?.title}</div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-xs text-gray-900 truncate">{item.product?.title || 'পণ্য'}</h4>
                         <div className="text-[11px] text-gray-500">পরিমাণ: {item.quantity} × ৳{item.unit_price}</div>
                       </div>
                     </div>
@@ -799,8 +914,8 @@ function OrdersView() {
               </div>
 
               {o.shipping_address && (
-                <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                  <span className="font-bold text-gray-700">ডেলিভারি ঠিকানা: </span>{o.shipping_address}
+                <div className="pt-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  <strong>ডেলিভারি ঠিকানা:</strong> {o.shipping_address}
                 </div>
               )}
             </div>
@@ -815,130 +930,108 @@ function ChatsView() {
   const { profile } = useAuth()
   const [chats, setChats] = useState<ExtendedChat[]>([])
   const [selectedChat, setSelectedChat] = useState<ExtendedChat | null>(null)
-  const [messages, setMessages] = useState<ExtendedChat[]>([])
-  const [replyText, setReplyText] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [messages, setMessages] = useState<any[]>([])
+  const [reply, setReply] = useState('')
 
   useEffect(() => {
     if (!profile?.id) return
     supabase.from('chats').select('*, sender:profiles!sender_id(*), receiver:profiles!receiver_id(*), product:products(*)').or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`).order('created_at', { ascending: false })
-      .then(({ data }) => { setChats((data as unknown as ExtendedChat[]) || []); setLoading(false) })
+      .then(({ data }) => setChats((data as unknown as ExtendedChat[]) || []))
   }, [profile])
 
   useEffect(() => {
     if (!selectedChat) return
     supabase.from('chats').select('*, sender:profiles!sender_id(*), receiver:profiles!receiver_id(*)').or(`and(sender_id.eq.${selectedChat.sender_id},receiver_id.eq.${selectedChat.receiver_id}),and(sender_id.eq.${selectedChat.receiver_id},receiver_id.eq.${selectedChat.sender_id})`).order('created_at', { ascending: true })
-      .then(({ data }) => setMessages((data as unknown as ExtendedChat[]) || []))
+      .then(({ data }) => setMessages(data || []))
   }, [selectedChat])
 
   async function sendReply(e: React.FormEvent) {
     e.preventDefault()
-    if (!replyText.trim() || !selectedChat || !profile?.id) return
-    const receiverId = selectedChat.sender_id === profile.id ? selectedChat.receiver_id : selectedChat.sender_id
+    if (!profile?.id || !selectedChat || !reply.trim()) return
+    const recipientId = selectedChat.sender_id === profile.id ? selectedChat.receiver_id : selectedChat.sender_id
     const { data } = await supabase.from('chats').insert({
       sender_id: profile.id,
-      receiver_id: receiverId,
+      receiver_id: recipientId,
       product_id: selectedChat.product_id,
-      message: replyText.trim(),
+      message: reply.trim(),
     }).select('*, sender:profiles!sender_id(*), receiver:profiles!receiver_id(*)').single()
 
     if (data) {
-      setMessages(prev => [...prev, data as unknown as ExtendedChat])
-      setReplyText('')
+      setMessages(prev => [...prev, data])
+      setReply('')
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="font-display font-extrabold text-2xl text-gray-900">সরাসরি চ্যাট ও সাপোর্ট (Support Chats)</h2>
-        <p className="text-sm text-gray-500">বিক্রেতা ও স্থানীয় ফিল্ড এজেন্টদের সাথে আপনার পণ্যের চ্যাট ও কথোপকথন।</p>
-      </div>
-
-      {chats.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center space-y-3">
-          <div className="text-5xl">💬</div>
-          <h3 className="font-bold text-lg text-gray-800">কোনো চ্যাট ইতিহাস নেই!</h3>
-          <p className="text-sm text-gray-500">কোনো পণ্যের বিবরণ থেকে "সেলারকে মেসেজ দিন" বাটনে ক্লিক করে চ্যাট শুরু করতে পারেন।</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm min-h-[500px]">
-          <div className="border-r border-gray-200 divide-y divide-gray-100 overflow-y-auto max-h-[600px]">
-            {chats.map(c => {
-              const otherUser = c.sender_id === profile?.id ? c.receiver : c.sender
-              const isSelected = selectedChat?.id === c.id
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-xs min-h-[600px]">
+      <div className="border-r border-gray-200 flex flex-col">
+        <div className="p-4 border-b border-gray-200 font-display font-bold text-sm bg-gray-50/50">সরাসরি সাপোর্ট চ্যাট ({chats.length})</div>
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+          {chats.length === 0 ? (
+            <div className="p-8 text-center text-xs text-gray-400">কোনো চ্যাট ইতিহাস নেই</div>
+          ) : (
+            chats.map(c => {
+              const other = c.sender_id === profile?.id ? c.receiver : c.sender
               return (
-                <div 
-                  key={c.id} 
-                  onClick={() => setSelectedChat(c)}
-                  className={`p-4 cursor-pointer transition-all hover:bg-gray-50 flex items-center gap-3 ${isSelected ? 'bg-primary-50/60 border-l-4 border-primary-600' : ''}`}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-primary-100 text-primary-700 font-bold flex items-center justify-center uppercase shrink-0">
-                    {otherUser?.full_name?.charAt(0) || 'U'}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-xs text-gray-900 truncate">{otherUser?.full_name || 'ইউজার'}</div>
-                    <div className="text-[11px] text-gray-500 truncate mt-0.5">{c.message}</div>
-                  </div>
+                <div key={c.id} onClick={() => setSelectedChat(c)} className={`p-4 hover:bg-gray-50 cursor-pointer transition-all ${selectedChat?.id === c.id ? 'bg-primary-50/60 border-l-4 border-primary-600' : ''}`}>
+                  <div className="font-bold text-xs text-gray-900">{other?.full_name || 'ইউজার'}</div>
+                  <div className="text-[11px] text-primary-600 font-semibold truncate mt-0.5">{c.product?.title || 'সাধারণ সাপোর্ট'}</div>
+                  <div className="text-[11px] text-gray-500 truncate mt-1">{c.message}</div>
                 </div>
               )
-            })}
-          </div>
-
-          <div className="md:col-span-2 flex flex-col justify-between bg-gray-50/30">
-            {selectedChat ? (
-              <>
-                <div className="p-4 bg-white border-b border-gray-200 flex items-center justify-between">
-                  <div className="font-bold text-sm text-gray-900">
-                    চ্যাট উইন্ডো (#{selectedChat.id.slice(0, 6)})
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px]">
-                  {messages.map(m => {
-                    const isMe = m.sender_id === profile?.id
-                    return (
-                      <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-md rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-xs ${isMe ? 'bg-primary-600 text-white rounded-br-xs' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-xs'}`}>
-                          <p>{m.message}</p>
-                          <span className={`block text-[9px] mt-1 text-right ${isMe ? 'text-primary-200' : 'text-gray-400'}`}>
-                            {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <form onSubmit={sendReply} className="p-3 bg-white border-t border-gray-200 flex gap-2">
-                  <input 
-                    type="text"
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 outline-none text-xs font-medium bg-gray-50"
-                    placeholder="আপনার বার্তা লিখুন..."
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                  />
-                  <button type="submit" className="px-5 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-sm transition-all">
-                    প্রেরণ করুন
-                  </button>
-                </form>
-              </>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-400 text-xs">
-                বাম পাশের তালিকা থেকে যেকোনো চ্যাট সিলেক্ট করুন।
-              </div>
-            )}
-          </div>
+            })
+          )}
         </div>
-      )}
+      </div>
+
+      <div className="md:col-span-2 flex flex-col bg-gray-50/30">
+        {!selectedChat ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400 space-y-2">
+            <div className="text-4xl">💬</div>
+            <p className="text-xs font-medium">বাম পাশ থেকে যেকোনো চ্যাট সিলেক্ট করুন কথোপকথন দেখতে।</p>
+          </div>
+        ) : (
+          <>
+            <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between">
+              <div>
+                <div className="font-bold text-sm text-gray-900">
+                  {selectedChat.sender_id === profile?.id ? selectedChat.receiver?.full_name : selectedChat.sender?.full_name}
+                </div>
+                {selectedChat.product && <div className="text-xs text-primary-600 font-semibold">পণ্য: {selectedChat.product.title}</div>}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messages.map(m => {
+                const isMe = m.sender_id === profile?.id
+                return (
+                  <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-md rounded-2xl px-4 py-2.5 text-xs shadow-xs ${isMe ? 'bg-primary-600 text-white rounded-br-xs' : 'bg-white border border-gray-200 text-gray-800 rounded-bl-xs'}`}>
+                      <p className="leading-relaxed">{m.message}</p>
+                      <div className={`text-[9px] mt-1 text-right ${isMe ? 'text-primary-100' : 'text-gray-400'}`}>
+                        {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <form onSubmit={sendReply} className="p-3 border-t border-gray-200 bg-white flex gap-2">
+              <input 
+                type="text" 
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary-600 focus:ring-2 focus:ring-primary-100 outline-none text-xs bg-gray-50"
+                placeholder="আপনার বার্তা এখানে লিখুন..."
+                value={reply}
+                onChange={e => setReply(e.target.value)}
+              />
+              <button type="submit" className="px-5 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-sm transition-all">
+                প্রেরণ করুন
+              </button>
+            </form>
+          </>
+        )}
+      </div>
     </div>
   )
 }
