@@ -1,12 +1,48 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { supabase, PlatformSettings } from '../lib/supabase'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 
 export default function SuperAdminDashboard() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const tab = searchParams.get('tab') || 'settings'
-  if (tab === 'metrics') return <MetricsView />
-  return <SettingsView />
+  
+  return (
+    <div className="space-y-6">
+      {/* Global Tab Navigation - Update paths to match your active route base */}
+      <div className="flex gap-2 border-b border-gray-200 pb-4">
+        <button
+          onClick={() => navigate('?tab=settings')} // Relative query update keeps you on the same route path
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            tab === 'settings' ? 'bg-primary-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          ⚙️ Settings
+        </button>
+        <button
+          onClick={() => navigate('?tab=users')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            tab === 'users' ? 'bg-primary-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          👥 Users Management
+        </button>
+        <button
+          onClick={() => navigate('?tab=metrics')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            tab === 'metrics' ? 'bg-primary-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          📊 Metrics
+        </button>
+      </div>
+
+      {/* Dynamic Tab Content */}
+      {tab === 'metrics' && <MetricsView />}
+      {tab === 'users' && <UsersView />}
+      {tab === 'settings' && <SettingsView />}
+    </div>
+  )
 }
 
 function SettingsView() {
@@ -74,6 +110,190 @@ function SettingsView() {
         </div>
         <button type="submit" className="btn-primary w-full py-3" disabled={saving}>{saving ? 'Saving...' : 'Save Settings'}</button>
       </form>
+    </div>
+  )
+}
+
+function UsersView() {
+  const [users, setUsers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [selectedUser, setSelectedUser] = useState<any | null>(null)
+
+  useEffect(() => {
+    async function loadUsers() {
+      setLoading(true)
+      let query = supabase.from('profiles').select('*, district:districts(name)').order('created_at', { ascending: false })
+      if (roleFilter !== 'all') {
+        query = query.eq('role', roleFilter)
+      }
+      const { data, error } = await query
+      if (error) {
+        console.error("Failed to load users:", error.message)
+      } else {
+        setUsers(data || [])
+      }
+      setLoading(false)
+    }
+    loadUsers()
+  }, [roleFilter])
+
+  const ROLE_ICONS: Record<string, string> = {
+    consumer: '🛍️',
+    seller: '🌾',
+    agent: '🔍',
+    admin: '🛡️',
+    super_admin: '👑',
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="font-display font-bold text-2xl">User Management</h1>
+          <p className="text-gray-500 text-sm mt-1">View, filter and inspect all user profile information</p>
+        </div>
+
+        {/* Role Filter Tabs */}
+        <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl">
+          {['all', 'consumer', 'seller', 'agent', 'admin'].map((r) => (
+            <button
+              key={r}
+              onClick={() => setRoleFilter(r)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                roleFilter === r ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              {r === 'all' ? 'All Users' : r.replace('_', ' ')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-20 text-gray-400">Loading users...</div>
+      ) : users.length === 0 ? (
+        <div className="card p-12 text-center text-gray-400">No users found for this filter.</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {users.map((u) => (
+            <div
+              key={u.id}
+              onClick={() => setSelectedUser(u)}
+              className="card p-5 space-y-3 cursor-pointer hover:border-primary-500 transition-all border border-gray-100 shadow-xs bg-white rounded-2xl flex flex-col justify-between"
+            >
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 flex items-center gap-1">
+                    {ROLE_ICONS[u.role] || '👤'} <span className="uppercase">{u.role.replace('_', ' ')}</span>
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${
+                    u.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
+                    u.status === 'pending' ? 'bg-amber-50 text-amber-700' :
+                    'bg-rose-50 text-rose-700'
+                  }`}>
+                    {u.status}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-gray-800 text-base">{u.full_name}</h3>
+                  <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400">
+                <span>📍 {u.district?.name || 'No District'}</span>
+                <span>Joined {new Date(u.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* USER PROFILE DETAILS MODAL */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex justify-end animate-fadeIn">
+          <div className="bg-white w-full max-w-lg h-full overflow-y-auto p-6 space-y-6 shadow-2xl flex flex-col justify-between">
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-2xl font-bold text-primary-700">
+                    {selectedUser.full_name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">{selectedUser.full_name}</h2>
+                    <span className="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-primary-50 text-primary-700">
+                      {selectedUser.role.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Complete Profile Data Attributes */}
+              <div className="space-y-4">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
+                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Contact & Location</h3>
+                  <div className="text-xs space-y-2 text-gray-600">
+                    <p className="flex justify-between"><strong>Email:</strong> <span className="font-mono text-gray-800">{selectedUser.email}</span></p>
+                    <p className="flex justify-between"><strong>Phone:</strong> <span className="font-mono text-gray-800">{selectedUser.phone || 'N/A'}</span></p>
+                    <p className="flex justify-between"><strong>District:</strong> <span className="font-semibold text-primary-600">{selectedUser.district?.name || 'N/A'}</span></p>
+                    <p className="flex justify-between"><strong>Account Status:</strong> <span className={`uppercase font-bold ${selectedUser.status === 'active' ? 'text-emerald-600' : 'text-amber-600'}`}>{selectedUser.status}</span></p>
+                  </div>
+                </div>
+
+                {/* Role Specific Attributes */}
+                {(selectedUser.business_name || selectedUser.national_id || selectedUser.seller_products_desc || selectedUser.agent_reason) && (
+                  <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3">
+                    <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">Role Specific Details</h3>
+                    <div className="text-xs space-y-2 text-gray-700">
+                      {selectedUser.business_name && (
+                        <p><strong>Shop Name:</strong> {selectedUser.business_name}</p>
+                      )}
+                      {selectedUser.national_id && (
+                        <p><strong>NID Number:</strong> <span className="font-mono">{selectedUser.national_id}</span></p>
+                      )}
+                      {selectedUser.seller_products_desc && (
+                        <div>
+                          <strong className="block mb-1 text-gray-800">Products / Description (Seller):</strong>
+                          <p className="bg-white p-2.5 rounded-lg border border-blue-100 text-gray-600 italic">{selectedUser.seller_products_desc}</p>
+                        </div>
+                      )}
+                      {selectedUser.agent_reason && (
+                        <div>
+                          <strong className="block mb-1 text-gray-800">Agent Motivation & Bio:</strong>
+                          <p className="bg-white p-2.5 rounded-lg border border-blue-100 text-gray-600 italic">{selectedUser.agent_reason}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-[11px] text-gray-400 pt-2 flex justify-between">
+                  <span>User ID: <span className="font-mono">{selectedUser.id}</span></span>
+                  <span>Registered: {new Date(selectedUser.created_at).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-colors"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

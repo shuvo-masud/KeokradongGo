@@ -73,9 +73,19 @@ export default function AgentOrdersView() {
           quantity,
           unit_price,
           district_id,
+          district:districts(
+            id,
+            name
+          ),
           products(
             title,
-            image_url
+            image_url,
+            seller:profiles!seller_id(
+              full_name,
+              email,
+              phone,        
+              business_name
+            )
           )
         `)
         .eq('order_id', order.id)
@@ -102,7 +112,6 @@ export default function AgentOrdersView() {
       return
     }
 
-    // Update local state smoothly
     setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o))
     if (selectedOrder && selectedOrder.id === orderId) {
       setSelectedOrder({ ...selectedOrder, status })
@@ -162,12 +171,10 @@ export default function AgentOrdersView() {
         </div>
       )}
 
-      {/* ORDER DETAILS MODAL / SLIDER */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex justify-end animate-fadeIn">
           <div className="bg-white w-full max-w-xl h-full overflow-y-auto p-6 space-y-6 shadow-2xl flex flex-col justify-between">
             <div className="space-y-6">
-              {/* Header */}
               <div className="flex justify-between items-start border-b pb-4">
                 <div>
                   <span className="text-xs font-mono font-bold text-gray-400 uppercase">Order Details</span>
@@ -182,7 +189,6 @@ export default function AgentOrdersView() {
                 </button>
               </div>
 
-              {/* Status Changer */}
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-2">
                 <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">Update Status</label>
                 <select
@@ -196,7 +202,6 @@ export default function AgentOrdersView() {
                 </select>
               </div>
 
-              {/* Customer & Shipping Info */}
               <div className="space-y-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                 <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">Customer & Delivery Info</h3>
                 <div className="text-xs space-y-1.5 text-gray-700">
@@ -210,7 +215,6 @@ export default function AgentOrdersView() {
                 </div>
               </div>
 
-              {/* Order Items List */}
               <div className="space-y-3">
                 <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Ordered Products</h3>
                 {loadingDetails ? (
@@ -218,19 +222,35 @@ export default function AgentOrdersView() {
                 ) : (
                   <div className="space-y-2">
                     {orderItems.map(item => (
-                      <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                        <img 
-                          src={item.products?.image_url || '/placeholder.png'} 
-                          alt="" 
-                          className="w-14 h-14 rounded-lg object-cover bg-white border"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-xs text-gray-800 truncate">{item.products?.title}</h4>
-                          <p className="text-[11px] text-gray-500">Qty: {item.quantity} × ৳{item.unit_price}</p>
+                      <div key={item.id} className="flex flex-col gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={item.products?.image_url || '/placeholder.png'} 
+                            alt="" 
+                            className="w-14 h-14 rounded-lg object-cover bg-white border"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-xs text-gray-800 truncate">{item.products?.title}</h4>
+                            <p className="text-[11px] text-gray-500">Qty: {item.quantity} × ৳{item.unit_price}</p>
+                          </div>
+                          <div className="font-bold text-xs text-primary-600">
+                            ৳{(item.quantity * item.unit_price).toFixed(0)}
+                          </div>
                         </div>
-                        <div className="font-bold text-xs text-primary-600">
-                          ৳{(item.quantity * item.unit_price).toFixed(0)}
+
+                        <div className="pt-2 border-t border-gray-200/60 flex justify-between items-center text-[11px] text-gray-500">
+                          <span>
+                            Seller: <strong className="text-gray-700">{item.products?.seller?.business_name || item.products?.seller?.full_name || 'N/A'}</strong>
+                          </span>
+                          <span>
+                            District: <span className="text-primary-600 font-bold">📍 {item.district?.name || 'N/A'}</span>
+                          </span>
                         </div>
+                        {item.products?.seller?.phone && (
+    <div>
+      Seller Phone: <a href={`tel:${item.products.seller.phone}`} className="text-primary-600 font-semibold hover:underline">📞 {item.products.seller.phone}</a>
+    </div>
+  )}
                       </div>
                     ))}
                   </div>
@@ -238,7 +258,6 @@ export default function AgentOrdersView() {
               </div>
             </div>
 
-            {/* Footer Summary */}
             <div className="border-t pt-4 space-y-2 bg-white sticky bottom-0">
               <div className="flex justify-between text-xs text-gray-500">
                 <span>Subtotal / Shipping</span>

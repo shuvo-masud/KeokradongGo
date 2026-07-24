@@ -26,6 +26,7 @@ interface SignUpData {
   businessName?: string
   nationalId?: string
   sellerProductsDesc?: string
+  agentReason?: string
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -126,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           business_name: data.businessName?.trim() || null,
           national_id: data.nationalId?.trim() || null,
           seller_products_desc: data.sellerProductsDesc || null, // <--- Fixed: changed formData to data
+          agent_reason: data.agentReason?.trim() || null,
         },
       },
     })

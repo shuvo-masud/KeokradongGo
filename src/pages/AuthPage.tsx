@@ -37,6 +37,7 @@ export default function AuthPage() {
   const [shopName, setShopName] = useState('')
   const [nidNumber, setNidNumber] = useState('')
   const [sellerProductsDesc, setSellerProductsDesc] = useState('')
+  const [agentReason, setAgentReason] = useState('')
 
   useEffect(() => {
     async function fetchDistricts() {
@@ -91,6 +92,7 @@ export default function AuthPage() {
           nationalId: role !== 'consumer' ? nidNumber.trim() : undefined,
           sellerProductsDesc:
             role === 'seller' ? sellerProductsDesc.trim() : undefined,
+          agentReason: role === 'agent' ? agentReason.trim() : undefined,
         })
 
         if (error) throw new Error(error)
@@ -103,6 +105,7 @@ export default function AuthPage() {
         setShopName('')
         setNidNumber('')
         setSellerProductsDesc('')
+        setAgentReason('')
         setDistrictId('')
 
         setMode('login')
@@ -246,6 +249,22 @@ export default function AuthPage() {
                           />
                         </div>
                       </>
+                    )}
+
+                    {role === 'agent' && (
+                      <div>
+                        <label className={labelClass}>
+                          কেন আপনি এজেন্ট হতে আগ্রহী এবং আপনার সংক্ষিপ্ত পরিচয় দিন
+                        </label>
+                        <textarea
+                          className={inputClass}
+                          rows={3}
+                          placeholder="কেন আপনি এজেন্ট হতে আগ্রহী এবং আপনার সংক্ষিপ্ত পরিচয় দিন..."
+                          value={agentReason}
+                          onChange={(e) => setAgentReason(e.target.value)}
+                          required
+                        />
+                      </div>
                     )}
 
                     {role !== 'consumer' && (
