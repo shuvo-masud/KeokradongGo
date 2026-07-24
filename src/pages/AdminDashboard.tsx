@@ -412,7 +412,8 @@ function OrdersManagement() {
               </div>
 
               {/* Order Items List */}
-              <div className="space-y-3">
+              {/* Order Items List */}
+<div className="space-y-3">
   <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Ordered Products & Seller District</h3>
   {loadingDetails ? (
     <p className="text-xs text-gray-400 text-center py-4">Loading items...</p>
