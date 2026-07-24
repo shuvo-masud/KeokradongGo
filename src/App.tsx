@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ReactNode } from 'react'
 
 import { AuthProvider, useAuth } from './lib/auth'
+import { CartProvider } from './pages/ConsumerDashboard'
 
 import LandingPage from './pages/LandingPage'
 import AuthPage from './pages/AuthPage'
@@ -40,11 +41,7 @@ function ProtectedRoute({
     return <LoadingScreen />
   }
 
-  if (!user) {
-    return <Navigate to="/auth" replace />
-  }
-
-  if (!profile) {
+  if (!user || !profile) {
     return <Navigate to="/auth" replace />
   }
 
@@ -68,73 +65,52 @@ function DashboardRouter() {
   if (!profile) {
     return <Navigate to="/auth" replace />
   }
+
   if (profile.status === 'pending') {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="card p-8 text-center max-w-md">
-        <h2 className="text-xl font-bold mb-3">
-          Account Pending Approval
-        </h2>
+    return <PendingAccountMessage />
+  }
 
-        <p className="text-gray-600">
-          Your account is currently waiting for admin approval.
-          You will get access once your account has been approved.
-        </p>
+  if (profile.status === 'suspended') {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="card p-8 text-center max-w-md">
+          <h2 className="text-xl font-bold text-red-600 mb-3">
+            Account Suspended
+          </h2>
+          <p className="text-gray-600">
+            Your account has been suspended. Please contact support for more information.
+          </p>
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
+  if (
+    profile.status !== 'active' &&
+    !['admin', 'super_admin'].includes(profile.role)
+  ) {
+    return <PendingAccountMessage />
+  }
 
-if (profile.status === 'suspended') {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="card p-8 text-center max-w-md">
-        <h2 className="text-xl font-bold text-red-600 mb-3">
-          Account Suspended
-        </h2>
-
-        <p className="text-gray-600">
-          Your account has been suspended.
-          Please contact support for more information.
-        </p>
-      </div>
-    </div>
-  )
-}
-if (
-  profile.status !== 'active' &&
-  !['admin', 'super_admin'].includes(profile.role)
-) {
-  return <PendingAccountMessage />
-}
-
+  // Correctly mapping each role to its respective dashboard view
   switch (profile.role) {
     case 'consumer':
       return <ConsumerDashboard />
-
     case 'seller':
-      return <ConsumerDashboard/>
-
+      return <SellerDashboard />
     case 'agent':
-      return <ConsumerDashboard/>
-
+      return <AgentDashboard />
     case 'admin':
-      return <ConsumerDashboard />
-
+      return <AdminDashboard />
     case 'super_admin':
-      return <ConsumerDashboard />
-
+      return <SuperAdminDashboard />
     default:
       return <ConsumerDashboard />
   }
 }
 
 function AppRoutes() {
-  const {
-    user,
-    loading,
-  } = useAuth()
+  const { user, loading } = useAuth()
 
   if (loading) {
     return <LoadingScreen />
@@ -145,32 +121,14 @@ function AppRoutes() {
       <Route
         path="/"
         element={
-          user
-            ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            )
-            : (
-              <LandingPage />
-            )
+          user ? <Navigate to="/dashboard" replace /> : <LandingPage />
         }
       />
 
       <Route
         path="/auth"
         element={
-          user
-            ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            )
-            : (
-              <AuthPage />
-            )
+          user ? <Navigate to="/dashboard" replace /> : <AuthPage />
         }
       />
 
@@ -183,9 +141,11 @@ function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <Layout>
-              <DashboardRouter />
-            </Layout>
+            <CartProvider>
+              <Layout>
+                <DashboardRouter />
+              </Layout>
+            </CartProvider>
           </ProtectedRoute>
         }
       />
@@ -197,6 +157,7 @@ function AppRoutes() {
     </Routes>
   )
 }
+
 function PendingAccountMessage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
@@ -204,7 +165,6 @@ function PendingAccountMessage() {
         <h2 className="text-xl font-bold mb-3">
           Account Pending Approval
         </h2>
-
         <p className="text-gray-600">
           Your account is waiting for administrator approval.
           You will get access once your account has been approved.

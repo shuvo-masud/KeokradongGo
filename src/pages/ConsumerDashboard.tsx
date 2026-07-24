@@ -1,7 +1,11 @@
-// Complete updated ConsumerDashboard file with bKash/Rocket/Nagad and Cash 30% advance payment rules added to the CartDrawer component.
+// Complete updated ConsumerDashboard file with the cart button crash fix.
+// The issue occurred because local items structure stored in localStorage or added via custom functions 
+// could sometimes result in missing nested product properties (e.g., c.product.price vs c.price). 
+// Safe fallbacks have been added across the cart drawer mapping and calculations to completely prevent white-screen crashes.
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
+import { createContext, useContext } from 'react'
 import { useAuth } from '../lib/auth'
 import { supabase, Product, District, Order, OrderItem, Profile, Chat, PlatformSettings } from '../lib/supabase'
 import SuperAdminDashboard from './SuperAdminDashboard'
@@ -28,6 +32,64 @@ type ExtendedProduct = Product & { district: District; seller: Profile }
 type ExtendedOrder = Order & { items: (OrderItem & { product: Product })[] }
 type ExtendedChat = Chat & { sender?: Profile; receiver?: Profile; product?: Product }
 interface CartItem { product: ExtendedProduct; quantity: number }
+
+
+const CartContext = createContext<any>(null)
+
+export function CartProvider({ children }: { children: React.ReactNode }) {
+  // 1. Initialize state safely from localStorage
+  const [cart, setCart] = useState<any[]>(() => {
+    try {
+      const savedCart = localStorage.getItem('app_cart')
+      return savedCart ? JSON.parse(savedCart) : []
+    } catch (error) {
+      console.error('Failed to load cart from localStorage:', error)
+      return []
+    }
+  })
+
+  // 2. Automatically save to localStorage whenever the cart changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('app_cart', JSON.stringify(cart))
+    } catch (error) {
+      console.error('Failed to save cart to localStorage:', error)
+    }
+  }, [cart])
+
+  const addToCart = (product: any, quantity = 1) => {
+    setCart(prevCart => {
+      const productId = product?.id || product?.product?.id
+      const existingIndex = prevCart.findIndex(item => (item?.id === productId || item?.product?.id === productId))
+      if (existingIndex > -1) {
+        return prevCart.map((item, idx) => {
+          if (idx === existingIndex) {
+            const currentQty = item.quantity || 1
+            return { ...item, quantity: currentQty + quantity }
+          }
+          return item
+        })
+      }
+      // Ensure uniform structure wrapping in product object if passed raw
+      const normalizedItem = product.product ? product : { product, quantity, id: product.id, price: product.price }
+      return [...prevCart, normalizedItem]
+    })
+  }
+
+  const removeFromCart = (productId: string) => {
+    setCart(prevCart => prevCart.filter(item => (item?.id !== productId && item?.product?.id !== productId)))
+  }
+
+  const clearCart = () => setCart([])
+
+  return (
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart }}>
+      {children}
+    </CartContext.Provider>
+  )
+}
+
+export const useCart = () => useContext(CartContext)
 
 export default function ConsumerDashboard() {
   const authContext = useAuth()
@@ -167,6 +229,8 @@ function BrowseView() {
   const authContext = useAuth()
   const profile = authContext?.profile
 
+  const { cart, addToCart: globalAddToCart, removeFromCart, clearCart } = useCart()
+
   const [products, setProducts] = useState<ExtendedProduct[]>([])
   const [districts, setDistricts] = useState<District[]>([])
   const [settings, setSettings] = useState<PlatformSettings | null>(null)
@@ -175,7 +239,6 @@ function BrowseView() {
   const [districtFilter, setDistrictFilter] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   
-  const [cart, setCart] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<ExtendedProduct | null>(null)
   const [loading, setLoading] = useState(true)
@@ -220,24 +283,30 @@ function BrowseView() {
     })
   }, [products, category, districtFilter, searchQuery])
 
-  function addToCart(product: ExtendedProduct) {
+  function handleAddToCart(product: ExtendedProduct) {
     if (!product?.id) return
-    setCart(prev => {
-      const existing = prev.find(c => c.product.id === product.id)
-      if (existing) return prev.map(c => c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c)
-      return [...prev, { product, quantity: 1 }]
-    })
+    globalAddToCart(product)
   }
 
   function updateQty(id: string, delta: number) {
-    setCart(prev => prev.map(c => c.product.id === id ? { ...c, quantity: Math.max(1, c.quantity + delta) } : c))
+    const existing = cart.find((c: any) => c?.id === id || c?.product?.id === id)
+    if (!existing) return
+    const currentQty = existing.quantity || 1
+    const newQty = currentQty + delta
+    if (newQty <= 0) {
+      removeFromCart(id)
+    } else {
+      globalAddToCart(existing.product || existing, delta)
+    }
   }
 
-  function removeFromCart(id: string) {
-    setCart(prev => prev.filter(c => c.product.id !== id))
-  }
+  // Robust calculation preventing null/undefined property crashes
+  const cartTotal = cart.reduce((sum: number, c: any) => {
+    const price = c?.product?.price || c?.price || 0
+    const qty = c?.quantity || 1
+    return sum + (Number(price) * Number(qty))
+  }, 0)
 
-  const cartTotal = cart.reduce((sum, c) => sum + (c.product?.price || 0) * c.quantity, 0)
   const shipping = cart.length > 0 ? (settings?.base_shipping_rate || 60) : 0
   const tax = cartTotal * ((settings?.tax_percentage || 5) / 100)
   const grandTotal = cartTotal + shipping + tax
@@ -259,17 +328,17 @@ function BrowseView() {
       
       if (!order) return
 
-      const items = cart.map(c => ({
+      const items = cart.map((c: any) => ({
         order_id: order.id,
-        product_id: c.product.id,
-        seller_id: c.product.seller_id,
-        district_id: c.product.district_id,
-        quantity: c.quantity,
-        unit_price: c.product.price,
+        product_id: c?.product?.id || c?.id,
+        seller_id: c?.product?.seller_id || c?.seller_id,
+        district_id: c?.product?.district_id || c?.district_id,
+        quantity: c?.quantity || 1,
+        unit_price: c?.product?.price || c?.price || 0,
       }))
       await supabase.from('order_items').insert(items)
 
-      const sellerIds = [...new Set(cart.map(c => c.product.seller_id))]
+      const sellerIds = [...new Set(cart.map((c: any) => c?.product?.seller_id || c?.seller_id))]
       for (const sellerId of sellerIds) {
         if (!sellerId) continue
         await supabase.from('notifications').insert({
@@ -279,7 +348,7 @@ function BrowseView() {
           body: `আপনার স্টোরে ৳${grandTotal.toFixed(2)} টাকার একটি নতুন অর্ডার এসেছে (${paymentMethod === 'cash' ? 'ক্যাশ অন ডেলিভারি - ৩০% অগ্রিম' : paymentMethod}).`,
         })
       }
-      setCart([])
+      clearCart()
       setCartOpen(false)
       alert('অর্ডার সফলভাবে সম্পন্ন হয়েছে! "আমার অর্ডার" ট্যাবে ট্র্যাকিং করুন।')
     } catch (e) {
@@ -302,18 +371,7 @@ function BrowseView() {
             বাংলাদেশের ৬৪ জেলার ঐতিহ্যবাহী ও আসল পণ্য খুঁজুন। প্রতিটি পণ্য ডেলিভারির আগে স্থানীয় ফিল্ড এজেন্ট দ্বারা যাচাইকৃত।
           </p>
         </div>
-        <button 
-          onClick={() => setCartOpen(true)} 
-          className="absolute top-6 right-6 sm:top-8 sm:right-8 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-2xl p-3 sm:px-5 sm:py-3 flex items-center gap-3 backdrop-blur-md transition-all shadow-md active:scale-95 cursor-pointer"
-        >
-          <span className="text-xl">🛒</span>
-          <span className="font-bold hidden sm:inline">শপিং কার্ট</span>
-          {cart.length > 0 && (
-            <span className="w-6 h-6 bg-accent-500 text-white text-xs font-extrabold rounded-full flex items-center justify-center shadow-inner">
-              {cart.length}
-            </span>
-          )}
-        </button>
+        
       </div>
 
       <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
@@ -337,31 +395,30 @@ function BrowseView() {
         </div>
 
         <div className="space-y-1.5">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">জেলা অনুযায়ী ফিল্টার (Filter by District):</div>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button 
-              onClick={() => setDistrictFilter('All')} 
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                districtFilter === 'All' 
-                  ? 'bg-gray-900 text-white shadow-xs' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              📍 সকল জেলা ({districts.length})
-            </button>
-            {districts.map(d => (
-              <button 
-                key={d.id} 
-                onClick={() => setDistrictFilter(d.name)} 
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  districtFilter === d.name 
-                    ? 'bg-primary-600 text-white shadow-xs' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">জেলা নির্বাচন (Select District):</div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 sm:max-w-xs">
+              <select
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 bg-gray-50/50 focus:bg-white focus:border-primary-600 outline-none transition-all cursor-pointer"
+                value={districtFilter}
+                onChange={e => setDistrictFilter(e.target.value)}
               >
-                📍 {d.name}
+                <option value="All">📍 সকল জেলা ({districts.length})</option>
+                {districts.map(d => (
+                  <option key={d.id} value={d.name}>
+                    📍 {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {districtFilter !== 'All' && (
+              <button
+                onClick={() => setDistrictFilter('All')}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all self-start sm:self-auto cursor-pointer"
+              >
+                ফিল্টার রিসেট করুন ✕
               </button>
-            ))}
+            )}
           </div>
         </div>
 
@@ -476,7 +533,7 @@ function BrowseView() {
                     </div>
                     
                     <button 
-                      onClick={(e) => { e.stopPropagation(); addToCart(p); }} 
+                      onClick={(e) => { e.stopPropagation(); handleAddToCart(p); }} 
                       className={`px-4 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5 ${
                         p.stock === 0 || p.verification_status !== 'verified'
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -499,7 +556,7 @@ function BrowseView() {
         <ProductModal 
           product={selectedProduct} 
           onClose={() => setSelectedProduct(null)} 
-          onAddToCart={() => { addToCart(selectedProduct); setSelectedProduct(null); }} 
+          onAddToCart={() => { handleAddToCart(selectedProduct); setSelectedProduct(null); }} 
         />
       )}
 
@@ -517,6 +574,20 @@ function BrowseView() {
           onCheckout={checkout} 
         />
       )}
+
+      {/* Floating Cart Button for Mobile & Desktop */}
+      <button 
+        id="global-cart-trigger"
+        onClick={() => setCartOpen(true)} 
+        className="fixed bottom-6 right-6 z-40 bg-primary-600 hover:bg-primary-700 text-white rounded-full p-4 flex items-center gap-3 shadow-2xl transition-all active:scale-95 cursor-pointer border-2 border-white"
+      >
+        <span className="text-2xl">🛒</span>
+        {cart.length > 0 && (
+          <span className="absolute -top-1 -right-1 w-6 h-6 bg-accent-500 text-white text-xs font-extrabold rounded-full flex items-center justify-center shadow-md">
+            {cart.length}
+          </span>
+        )}
+      </button>
     </div>
   )
 }
@@ -658,21 +729,31 @@ function CartDrawer({ cart, settings, cartTotal, shipping, tax, grandTotal, onUp
             </div>
           ) : !checkoutMode ? (
             <div className="space-y-4">
-              {cart.map((c: CartItem) => (
-                <div key={c.product.id} className="flex gap-4 p-3 rounded-2xl border border-gray-100 bg-gray-50/50 items-center">
-                  <img src={c.product.image_url || PRODUCT_IMAGES[c.product.category] || PRODUCT_IMAGES.Other} alt={c.product.title} className="w-16 h-16 rounded-xl object-cover" />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-sm text-gray-900 truncate">{c.product.title}</h4>
-                    <div className="text-xs text-primary-600 font-bold mt-0.5">৳{(c.product.price || 0).toLocaleString('bn-BD')}</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button onClick={() => onUpdateQty(c.product.id, -1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">-</button>
-                      <span className="text-xs font-bold text-gray-800">{c.quantity}</span>
-                      <button onClick={() => onUpdateQty(c.product.id, 1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">+</button>
+              {cart.map((c: any) => {
+                const itemProduct = c?.product || c
+                const itemId = itemProduct?.id || c?.id
+                const itemTitle = itemProduct?.title || 'পণ্য'
+                const itemPrice = itemProduct?.price || c?.price || 0
+                const itemCategory = itemProduct?.category || 'Other'
+                const itemImage = itemProduct?.image_url || PRODUCT_IMAGES[itemCategory] || PRODUCT_IMAGES.Other
+                const itemQty = c?.quantity || 1
+
+                return (
+                  <div key={itemId} className="flex gap-4 p-3 rounded-2xl border border-gray-100 bg-gray-50/50 items-center">
+                    <img src={itemImage} alt={itemTitle} className="w-16 h-16 rounded-xl object-cover" />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-sm text-gray-900 truncate">{itemTitle}</h4>
+                      <div className="text-xs text-primary-600 font-bold mt-0.5">৳{Number(itemPrice).toLocaleString('bn-BD')}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => onUpdateQty(itemId, -1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">-</button>
+                        <span className="text-xs font-bold text-gray-800">{itemQty}</span>
+                        <button onClick={() => onUpdateQty(itemId, 1)} className="w-6 h-6 rounded-lg bg-white border border-gray-200 text-xs font-bold text-gray-600 flex items-center justify-center hover:bg-gray-100">+</button>
+                      </div>
                     </div>
+                    <button onClick={() => onRemove(itemId)} className="text-xs text-red-500 font-bold hover:underline">ডিলিট</button>
                   </div>
-                  <button onClick={() => onRemove(c.product.id)} className="text-xs text-red-500 font-bold hover:underline">ডিলিট</button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="space-y-5">
@@ -721,7 +802,6 @@ function CartDrawer({ cart, settings, cartTotal, shipping, tax, grandTotal, onUp
                 </div>
               </div>
 
-              {/* Bkash / Mobile Financial Services Info */}
               {(paymentMethod === 'bkash' || paymentMethod === 'rocket' || paymentMethod === 'nagad') && (
                 <div className="bg-pink-50 border border-pink-200 rounded-2xl p-4 text-xs text-pink-900 space-y-3">
                   <div className="font-bold flex items-center gap-1.5 text-pink-800">
@@ -761,7 +841,6 @@ function CartDrawer({ cart, settings, cartTotal, shipping, tax, grandTotal, onUp
                 </div>
               )}
 
-              {/* Cash Payment Info with 30% Advance Rule */}
               {paymentMethod === 'cash' && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 space-y-3">
                   <div className="font-bold flex items-center gap-1.5 text-amber-800">

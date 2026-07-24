@@ -35,6 +35,12 @@ export default function AdminDashboard() {
           Disputes
         </button>
         <button
+          onClick={() => setSearchParams({ tab: 'support_chats' })}
+          className={tab === 'support_chats' ? 'btn-primary' : 'btn-outline'}
+        >
+          Support Chats
+        </button>
+        <button
           onClick={() => setSearchParams({ tab: 'analytics' })}
           className={tab === 'analytics' ? 'btn-primary' : 'btn-outline'}
         >
@@ -46,6 +52,7 @@ export default function AdminDashboard() {
       {tab === 'users' && <UsersView />}
       {tab === 'pending_products' && <PendingProductsView />}
       {tab === 'disputes' && <DisputesView />}
+      {tab === 'support_chats' && <AdminSupportChats />}
       {tab === 'analytics' && <AnalyticsView />}
     </div>
   )
@@ -271,6 +278,7 @@ function OrdersManagement() {
     setSelectedOrder(order)
     setLoadingDetails(true)
     try {
+      // Fetch order items and join products, districts, and seller profiles
       const { data, error } = await supabase
         .from('order_items')
         .select(`
@@ -278,9 +286,16 @@ function OrdersManagement() {
           quantity,
           unit_price,
           district_id,
+          district:districts(name),
           products(
             title,
-            image_url
+            image_url,
+            seller:profiles!seller_id(
+              full_name,
+              email,
+              phone,
+              business_name
+            )
           )
         `)
         .eq('order_id', order.id)
@@ -398,30 +413,34 @@ function OrdersManagement() {
 
               {/* Order Items List */}
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Ordered Products</h3>
-                {loadingDetails ? (
-                  <p className="text-xs text-gray-400 text-center py-4">Loading items...</p>
-                ) : (
-                  <div className="space-y-2">
-                    {orderItems.map(item => (
-                      <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                        <img 
-                          src={item.products?.image_url || '/placeholder.png'} 
-                          alt="" 
-                          className="w-14 h-14 rounded-lg object-cover bg-white border"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-xs text-gray-800 truncate">{item.products?.title}</h4>
-                          <p className="text-[11px] text-gray-500">Qty: {item.quantity} × ৳{item.unit_price}</p>
-                        </div>
-                        <div className="font-bold text-xs text-primary-600">
-                          ৳{(item.quantity * item.unit_price).toFixed(0)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Ordered Products & Seller District</h3>
+  {loadingDetails ? (
+    <p className="text-xs text-gray-400 text-center py-4">Loading items...</p>
+  ) : (
+    <div className="space-y-2">
+      {orderItems.map(item => (
+        <div key={item.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+          <img 
+            src={item.products?.image_url || '/placeholder.png'} 
+            alt="" 
+            className="w-14 h-14 rounded-lg object-cover bg-white border shrink-0"
+          />
+          <div className="flex-1 min-w-0 space-y-1">
+            <h4 className="font-semibold text-xs text-gray-800 truncate">{item.products?.title}</h4>
+            <p className="text-[11px] text-gray-500">Qty: {item.quantity} × ৳{item.unit_price}</p>
+            <div className="text-[10px] text-gray-400">
+              Seller: <strong className="text-gray-700">{item.products?.seller?.business_name || item.products?.seller?.full_name || 'N/A'}</strong> | 
+              District: <span className="text-primary-600 font-bold">📍 {item.district?.name || 'N/A'}</span>
+            </div>
+          </div>
+          <div className="font-bold text-xs text-primary-600 shrink-0">
+            ৳{(item.quantity * item.unit_price).toFixed(0)}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
             </div>
 
             {/* Footer Summary */}
@@ -682,6 +701,264 @@ function DisputesView() {
       )}
     </div>
   )
+}
+
+function AdminSupportChats() {
+  const [chats, setChats] = useState<any[]>([]);
+  const [activeChat, setActiveChat] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [replyText, setReplyText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const { profile: admin } = useAuth();
+
+  useEffect(() => {
+    fetchChats();
+  }, []);
+
+  useEffect(() => {
+    if (activeChat) {
+      fetchMessages(activeChat.sender_id);
+    }
+  }, [activeChat]);
+
+  const fetchChats = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('chats')
+        .select(`
+          id,
+          message,
+          created_at,
+          sender_id,
+          receiver_id,
+          product_id,
+          sender:profiles!chats_sender_id_fkey(*),
+          product:products(*, district:districts(name))
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const uniqueThreadsMap = new Map();
+      (data || []).forEach((chat: any) => {
+        const partnerId = chat.sender_id;
+        if (!uniqueThreadsMap.has(partnerId)) {
+          uniqueThreadsMap.set(partnerId, {
+            id: partnerId,
+            sender_id: partnerId,
+            consumer: chat.sender || {},
+            consumer_name: chat.sender?.full_name || 'গ্রাহক (Customer)',
+            last_message: chat.message,
+            product: chat.product || null,
+            updated_at: new Date(chat.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+        }
+      });
+
+      setChats(Array.from(uniqueThreadsMap.values()));
+    } catch (err) {
+      console.error('Error fetching chats:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMessages = async (senderId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('chats')
+        .select('*')
+        .or(`sender_id.eq.${senderId},receiver_id.eq.${senderId}`)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    }
+  };
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyText.trim() || !activeChat || !admin) return;
+
+    try {
+      const newMessage = {
+        sender_id: admin.id,
+        receiver_id: activeChat.sender_id,
+        message: replyText.trim(),
+        read: false
+      };
+
+      const { data, error } = await supabase
+        .from('chats')
+        .insert([newMessage])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setMessages([...messages, data]);
+      setReplyText('');
+    } catch (err) {
+      console.error('Error sending reply:', err);
+      alert('Failed to send message.');
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-3 h-[600px] relative">
+      {/* Left Column: Chat List */}
+      <div className="border-r border-gray-200 flex flex-col bg-gray-50/50">
+        <div className="p-4 border-b border-gray-200 font-bold text-sm text-gray-700">
+          💬 কাস্টমার সাপোর্ট চ্যাট ({chats.length})
+        </div>
+        <div className="overflow-y-auto flex-1 divide-y divide-gray-100">
+          {loading ? (
+            <div className="p-4 text-center text-xs text-gray-400">লোড হচ্ছে...</div>
+          ) : chats.length === 0 ? (
+            <div className="p-4 text-center text-xs text-gray-400">কোনো চ্যাট পাওয়া যায়নি</div>
+          ) : (
+            chats.map((chat) => (
+              <div
+                key={chat.id}
+                onClick={() => setActiveChat(chat)}
+                className={`p-4 cursor-pointer transition-all hover:bg-white ${
+                  activeChat?.id === chat.id ? 'bg-white border-l-4 border-primary-600 shadow-sm' : ''
+                }`}
+              >
+                <div className="font-semibold text-sm text-gray-800">{chat.consumer_name}</div>
+                <div className="text-xs text-gray-500 truncate mt-0.5">{chat.last_message}</div>
+                <div className="text-[10px] text-gray-400 mt-1">{chat.updated_at}</div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Right Column: Active Conversation & Reply Box */}
+      <div className="md:col-span-2 flex flex-col bg-white">
+        {activeChat ? (
+          <>
+            {/* Chat Header with Clickable Customer Name */}
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div>
+                  <button 
+                    onClick={() => setShowDetailsModal(true)}
+                    className="font-bold text-sm text-gray-800 hover:text-primary-600 underline text-left cursor-pointer transition-colors"
+                    title="গ্রাহকের বিবরণ দেখুন (View Customer Details)"
+                  >
+                    {activeChat.consumer_name} 🔍
+                  </button>
+                  <div className="text-[11px] text-green-600">সক্রিয় চ্যাট (Click name for details)</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages Scroll Area */}
+            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50/30">
+              {messages.map((msg) => {
+                const isAdmin = msg.sender_id === admin?.id;
+                return (
+                  <div key={msg.id} className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}>
+                    <div
+                      className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs shadow-sm ${
+                        isAdmin
+                          ? 'bg-primary-600 text-white rounded-br-none'
+                          : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
+                      }`}
+                    >
+                      {msg.message}
+                    </div>
+                    <span className="text-[10px] text-gray-400 mt-1 px-1">
+                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Reply Input Bar */}
+            <form onSubmit={handleSendReply} className="p-3 border-t border-gray-200 flex gap-2 bg-white">
+              <input
+                type="text"
+                placeholder="একটি উত্তর লিখুন..."
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-primary-600 outline-none transition-all"
+              />
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+              >
+                প্রেরণ করুন ➔
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-xs p-6">
+            <span className="text-3xl mb-2">👈</span>
+            বামে তালিকা থেকে যেকোনো একটি চ্যাট নির্বাচন করুন
+          </div>
+        )}
+      </div>
+
+      {/* Customer & Product Details Popup Modal */}
+      {showDetailsModal && activeChat && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowDetailsModal(false)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="font-bold text-base text-gray-800">📋 গ্রাহক ও পণ্যের বিবরণ (Details)</h3>
+              <button onClick={() => setShowDetailsModal(false)} className="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+
+            {/* Customer Information Section */}
+            <div className="space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <h4 className="text-xs font-bold text-primary-700 uppercase tracking-wider">গ্রাহকের তথ্য (Customer Profile)</h4>
+              <div className="text-xs space-y-1 text-gray-700">
+                <p><strong>নাম (Name):</strong> {activeChat.consumer?.full_name || 'N/A'}</p>
+                <p><strong>ইমেইল (Email):</strong> {activeChat.consumer?.email || 'N/A'}</p>
+                <p><strong>ফোন (Phone):</strong> {activeChat.consumer?.phone || 'N/A'}</p>
+                <p><strong>রোল (Role):</strong> <span className="uppercase badge-gray">{activeChat.consumer?.role || 'consumer'}</span></p>
+                <p><strong>স্ট্যাটাস (Status):</strong> <span className="font-semibold text-emerald-600">{activeChat.consumer?.status || 'active'}</span></p>
+              </div>
+            </div>
+
+            {/* Product Inquired Section */}
+            <div className="space-y-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+              <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">জিজ্ঞাসাকৃত পণ্য (Inquired Product)</h4>
+              {activeChat.product ? (
+                <div className="flex items-center gap-3 pt-1">
+                  <img 
+                    src={activeChat.product.image_url || 'https://images.pexels.com/photos/4198023/pexels-photo-4198023.jpeg'} 
+                    alt="" 
+                    className="w-16 h-16 rounded-xl object-cover border bg-white" 
+                  />
+                  <div className="space-y-1 text-xs">
+                    <p className="font-bold text-gray-900 text-sm">{activeChat.product.title}</p>
+                    <p className="text-primary-600 font-bold">৳{activeChat.product.price} | স্টক: {activeChat.product.stock}</p>
+                    <p className="text-gray-500">📍 জেলা: {activeChat.product.district?.name || 'N/A'}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic">এই চ্যাটটি সরাসরি জেনারেল সাপোর্ট চ্যাট (কোনো নির্দিষ্ট পণ্য যুক্ত নেই)।</p>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setShowDetailsModal(false)}
+              className="w-full py-2.5 bg-gray-900 text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-colors cursor-pointer"
+            >
+              বন্ধ করুন (Close)
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function AnalyticsView() {
