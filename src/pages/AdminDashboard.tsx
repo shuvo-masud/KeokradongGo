@@ -519,10 +519,12 @@ function UsersView() {
   const [users, setUsers] = useState<Profile[]>([])
   const [districts, setDistricts] = useState<District[]>([])
   const [filter, setFilter] = useState('all')
+  const [selectedUser, setSelectedUser] = useState<any | null>(null) // State to track clicked user for the popup modal
 
   const load = useCallback(async () => {
+    // Include district relationship join to display district name cleanly
     const [userRes, distRes] = await Promise.all([
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('*, district:districts(name)').order('created_at', { ascending: false }),
       supabase.from('districts').select('*'),
     ])
     setUsers(userRes.data ?? [])
@@ -539,50 +541,60 @@ function UsersView() {
     return true
   })
 
- async function updateStatus(userId: string, status: 'active' | 'pending' | 'suspended') {
-  const { data: targetUser, error: fetchError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
-    .single()
+  async function updateStatus(userId: string, status: 'active' | 'pending' | 'suspended', e?: React.MouseEvent) {
+    if (e) e.stopPropagation() // Prevent row click modal from opening when clicking action buttons
+    
+    const { data: targetUser, error: fetchError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single()
 
-  if (fetchError) {
-    alert(fetchError.message)
-    return
+    if (fetchError) {
+      alert(fetchError.message)
+      return
+    }
+
+    if (!['seller', 'agent'].includes(targetUser.role)) {
+      alert('You are only allowed to change the status of sellers and agents.')
+      return
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status })
+      .eq('id', userId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    await supabase.from('notifications').insert({
+      user_id: userId,
+      type: 'account',
+      title: status === 'active' ? 'Account Approved' : 'Account Suspended',
+      body: status === 'active' ? 'Your account has been approved by an administrator.' : 'Your account has been suspended.',
+    })
+
+    load()
   }
 
-  if (!['seller', 'agent'].includes(targetUser.role)) {
-    alert('You are only allowed to change the status of sellers and agents.')
-    return
+  const districtName = (u: any) => u.district?.name || districts.find(d => d.id === u.district_id)?.name || '—'
+
+  const ROLE_ICONS: Record<string, string> = {
+    consumer: '🛍️',
+    seller: '🌾',
+    agent: '🔍',
+    admin: '🛡️',
+    super_admin: '👑',
   }
-
-  const { error } = await supabase
-    .from('profiles')
-    .update({ status })
-    .eq('id', userId)
-
-  if (error) {
-    alert(error.message)
-    return
-  }
-
-  await supabase.from('notifications').insert({
-    user_id: userId,
-    type: 'account',
-    title: status === 'active' ? 'Account Approved' : 'Account Suspended',
-    body: status === 'active' ? 'Your account has been approved by an administrator.' : 'Your account has been suspended.',
-  })
-
-  load()
-}
-
-  const districtName = (id: string | null) => districts.find(d => d.id === id)?.name ?? '—'
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display font-bold text-2xl">User Management</h1>
-        <p className="text-gray-500 text-sm mt-1">Approve or suspend sellers and agents based on background checks</p>
+        <p className="text-gray-500 text-sm mt-1">Approve or suspend sellers and agents based on background checks. Click any row for full details.</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -606,13 +618,19 @@ function UsersView() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(u => (
-                <tr key={u.id} className="hover:bg-gray-50">
+                <tr 
+                  key={u.id} 
+                  onClick={() => setSelectedUser(u)}
+                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                >
                   <td className="p-3">
-                    <div className="font-medium">{u.full_name}</div>
+                    <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                      <span>{ROLE_ICONS[u.role] || '👤'}</span> {u.full_name}
+                    </div>
                     <div className="text-xs text-gray-500">{u.email}</div>
                   </td>
                   <td className="p-3"><span className="badge-gray capitalize">{u.role}</span></td>
-                  <td className="p-3 text-gray-600">{districtName(u.district_id)}</td>
+                  <td className="p-3 text-gray-600">{districtName(u)}</td>
                   <td className="p-3 text-gray-600 text-xs">
                     {u.business_name && <div>{u.business_name}</div>}
                     {u.national_id && <div className="text-gray-400">NID: {u.national_id}</div>}
@@ -620,11 +638,11 @@ function UsersView() {
                   <td className="p-3">
                     <span className={`badge ${u.status === 'active' ? 'badge-green' : u.status === 'pending' ? 'badge-orange' : 'badge-red'}`}>{u.status}</span>
                   </td>
-                  <td className="p-3 text-right">
+                  <td className="p-3 text-right" onClick={e => e.stopPropagation()}>
                     {u.id !== admin?.id && (
                       <div className="flex gap-1 justify-end">
-                        {u.status !== 'active' && <button onClick={() => updateStatus(u.id, 'active')} className="btn-primary text-xs py-1 px-2">Approve</button>}
-                        {u.status === 'active' && <button onClick={() => updateStatus(u.id, 'suspended')} className="btn-outline text-xs py-1 px-2 text-red-600 border-red-200">Suspend</button>}
+                        {u.status !== 'active' && <button onClick={(e) => updateStatus(u.id, 'active', e)} className="btn-primary text-xs py-1 px-2">Approve</button>}
+                        {u.status === 'active' && <button onClick={(e) => updateStatus(u.id, 'suspended', e)} className="btn-outline text-xs py-1 px-2 text-red-600 border-red-200">Suspend</button>}
                       </div>
                     )}
                   </td>
@@ -634,6 +652,90 @@ function UsersView() {
           </table>
         </div>
       </div>
+
+      {/* USER PROFILE DETAILS POPUP MODAL */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex justify-end animate-fadeIn" onClick={() => setSelectedUser(null)}>
+          <div className="bg-white w-full max-w-lg h-full overflow-y-auto p-6 space-y-6 shadow-2xl flex flex-col justify-between" onClick={e => e.stopPropagation()}>
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-2xl font-bold text-primary-700">
+                    {selectedUser.full_name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">{selectedUser.full_name}</h2>
+                    <span className="text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-primary-50 text-primary-700">
+                      {selectedUser.role?.replace('_', ' ')}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-200 transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Complete Profile Data Attributes */}
+              <div className="space-y-4">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
+                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Contact & Location Information</h3>
+                  <div className="text-xs space-y-2 text-gray-600">
+                    <p className="flex justify-between"><strong>Email:</strong> <span className="font-mono text-gray-800">{selectedUser.email}</span></p>
+                    <p className="flex justify-between"><strong>Phone:</strong> <span className="font-mono text-gray-800">{selectedUser.phone || 'N/A'}</span></p>
+                    <p className="flex justify-between"><strong>District:</strong> <span className="font-semibold text-primary-600">{districtName(selectedUser)}</span></p>
+                    <p className="flex justify-between"><strong>Account Status:</strong> <span className={`uppercase font-bold ${selectedUser.status === 'active' ? 'text-emerald-600' : 'text-amber-600'}`}>{selectedUser.status}</span></p>
+                  </div>
+                </div>
+
+                {/* Role Specific Attributes */}
+                {(selectedUser.business_name || selectedUser.national_id || selectedUser.seller_products_desc || selectedUser.agent_reason) && (
+                  <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3">
+                    <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">Role Specific Details</h3>
+                    <div className="text-xs space-y-2 text-gray-700">
+                      {selectedUser.business_name && (
+                        <p><strong>Shop / Business Name:</strong> {selectedUser.business_name}</p>
+                      )}
+                      {selectedUser.national_id && (
+                        <p><strong>NID Number:</strong> <span className="font-mono">{selectedUser.national_id}</span></p>
+                      )}
+                      {selectedUser.seller_products_desc && (
+                        <div>
+                          <strong className="block mb-1 text-gray-800">Products / Description (Seller):</strong>
+                          <p className="bg-white p-2.5 rounded-lg border border-blue-100 text-gray-600 italic">{selectedUser.seller_products_desc}</p>
+                        </div>
+                      )}
+                      {selectedUser.agent_reason && (
+                        <div>
+                          <strong className="block mb-1 text-gray-800">Agent Motivation / Bio:</strong>
+                          <p className="bg-white p-2.5 rounded-lg border border-blue-100 text-gray-600 italic">{selectedUser.agent_reason}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-[11px] text-gray-400 pt-2 flex justify-between">
+                  <span>User ID: <span className="font-mono">{selectedUser.id}</span></span>
+                  <span>Registered: {new Date(selectedUser.created_at).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-2">
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
